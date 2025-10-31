@@ -85,5 +85,30 @@ class ConversationSession(models.Model):
         self.context = ""
         self.save()
     
+    def get_conversation_history(self):
+        """
+        将上下文解析为结构化的对话历史列表
+        返回格式: [{'role': 'user', 'content': 'xxx'}, {'role': 'assistant', 'content': 'yyy'}]
+        """
+        history = []
+        if not self.context:
+            return history
+            
+        lines = self.context.strip().split('\n')
+        i = 0
+        while i < len(lines):
+            if lines[i].startswith('用户：'):
+                user_msg = lines[i][3:]  # 去掉"用户："前缀
+                i += 1
+                if i < len(lines) and lines[i].startswith('回复：'):
+                    assistant_msg = lines[i][3:]  # 去掉"回复："前缀
+                    history.append({'role': 'user', 'content': user_msg})
+                    history.append({'role': 'assistant', 'content': assistant_msg})
+                    i += 1
+                else:
+                    history.append({'role': 'user', 'content': user_msg})
+            else:
+                i += 1
+        return history    
     def __str__(self):
         return self.session_id

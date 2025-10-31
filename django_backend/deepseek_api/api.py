@@ -101,7 +101,9 @@ def chat(request, data: ChatIn):
     if cached_reply:
         reply = cached_reply
     else:
-        reply = deepseek_r1_api_call(prompt)
+        # 获取结构化的对话历史
+        conversation_history = session.get_conversation_history()
+        reply = deepseek_r1_api_call(user_input, conversation_history)
         # 设置缓存时传入session_id和user
         set_cached_reply(prompt, reply, session_id, user)
     

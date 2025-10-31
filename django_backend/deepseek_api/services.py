@@ -14,9 +14,8 @@ from django.conf import settings
 
 # 线程锁用于速率限制
 rate_lock = threading.Lock()
-
-def deepseek_r1_api_call(prompt: str) -> str:
-    """模拟 DeepSeek-R1 API 调用函数"""
+def deepseek_r1_api_call(prompt: str, conversation_history=None) -> str:
+    """调用 DeepSeek-R1 API 函数，支持完整的对话历史"""
     from topklogsystem import TopKLogSystem
     system = TopKLogSystem(
         log_path="./data/log",
@@ -24,31 +23,20 @@ def deepseek_r1_api_call(prompt: str) -> str:
         embedding_model="bge-large:latest"
     )
 
-    query = prompt
-    result = system.query(query)
+    # 如果提供了对话历史，则将其整合到查询中
+    if conversation_history is not None and len(conversation_history) > 0:
+        # 构建带有对话历史的查询
+        history_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history])
+        enhanced_query = f"对话上下文:\n{history_text}\n\n用户当前问题: {prompt}"
+        result = system.query(enhanced_query)
+    else:
+        # 没有对话历史，直接使用原查询
+        result = system.query(prompt)
+        
     time.sleep(0.5)
 
     print(result["response"])
     return result["response"]
-
-def create_api_key(user: str) -> str:
-    """创建 API Key 并保存到数据库"""
-    key = APIKey.generate_key()
-    expiry = time.time() + settings.TOKEN_EXPIRY_SECONDS
-    
-    api_key = APIKey.objects.create(
-        key=key,
-        user=user,
-        expiry_time=expiry
-    )
-    
-    # 创建对应的速率限制记录
-    RateLimit.objects.create(
-        api_key=api_key,
-        reset_time=time.time() + settings.RATE_LIMIT_INTERVAL
-    )
-    
-    return key
 
 def validate_api_key(key_str: str) -> bool:
     """验证 API Key 是否存在且未过期"""
