@@ -11,7 +11,11 @@ import pandas as pd
 from typing import Any, Dict, List
 
 # langchain
-from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
+from langchain.prompts import (
+    ChatPromptTemplate,
+    HumanMessagePromptTemplate,
+    SystemMessagePromptTemplate,
+)
 from langchain_ollama import OllamaLLM, OllamaEmbeddings
 
 # llama-index & chroma
@@ -28,10 +32,10 @@ logger = logging.getLogger(__name__)
 
 class TopKLogSystem:
     def __init__(
-            self,
-            log_path: str,
-            llm: str,
-            embedding_model: str,
+        self,
+        log_path: str,
+        llm: str,
+        embedding_model: str,
     ) -> None:
         # init models
         self.embedding_model = OllamaEmbeddings(model=embedding_model)
@@ -52,7 +56,9 @@ class TopKLogSystem:
         vector_store_path = "./data/vector_stores"
         os.makedirs(vector_store_path, exist_ok=True)  # exist_ok=True 目录存在时不报错
 
-        chroma_client = chromadb.PersistentClient(path=vector_store_path)  # chromadb 持久化
+        chroma_client = chromadb.PersistentClient(
+            path=vector_store_path
+        )  # chromadb 持久化
 
         # ChromaVectorStore 将 collection 与 store 绑定
         # 也是将 Chroma 包装为 llama-index 的接口
@@ -61,7 +67,9 @@ class TopKLogSystem:
 
         # 构建 log 库 index
         log_vector_store = ChromaVectorStore(chroma_collection=log_collection)
-        log_storage_context = StorageContext.from_defaults(vector_store=log_vector_store)
+        log_storage_context = StorageContext.from_defaults(
+            vector_store=log_vector_store
+        )
         if log_documents := self._load_documents(self.log_path):
             self.log_index = VectorStoreIndex.from_documents(
                 log_documents,
@@ -93,9 +101,11 @@ class TopKLogSystem:
                             content = str(row).replace("Pandas", " ")
                             documents.append(Document(text=content))
                 else:  # .txt or .md, .json
-                    with open(file_path, 'r', encoding='utf-8') as f:
+                    with open(file_path, "r", encoding="utf-8") as f:
                         content = f.read()
-                        doc = Document(text=content, )
+                        doc = Document(
+                            text=content,
+                        )
                         documents.append(doc)
             except Exception as e:
                 logger.error(f"加载文档失败 {file_path}: {e}")
@@ -113,10 +123,9 @@ class TopKLogSystem:
 
             formatted_results = []
             for result in results:
-                formatted_results.append({
-                    "content": result.text,
-                    "score": result.score
-                })
+                formatted_results.append(
+                    {"content": result.text, "score": result.score}
+                )
             return formatted_results
         except Exception as e:
             logger.error(f"日志检索失败: {e}")
@@ -137,33 +146,35 @@ class TopKLogSystem:
             # 构建 prompt
 
     def _build_prompt(self, query: str, context: Dict) -> List[Dict]:
-        # 系统消息 - 定义角色和任务
-        system_message = SystemMessagePromptTemplate.from_template(" ")
+        # 系统消息 - 定义角色和任务 (更新)
+        system_message = SystemMessagePromptTemplate.from_template(
+            "你是一个智能日志分析助手。"
+            "你的回答应该清晰、专业，并使用 Markdown 格式进行排版（例如使用列表、代码块、粗体、表格等）以提高可读性。"
+        )
 
         # 构建日志上下文
         log_context = "## 相关历史日志参考:\n"
-        for i, log in enumerate(context, 1):
-            log_context += f"日志 {i} : {log['content']}"
+        if not context:
+            log_context += "（未检索到相关历史日志）\n"
+        else:
+            for i, log in enumerate(context, 1):
+                log_context += f"日志 {i} : {log['content']}\n"
 
-            # 用户消息
-        user_message = HumanMessagePromptTemplate.from_template(""" 
+            # 用户消息 (更新)
+        user_message = HumanMessagePromptTemplate.from_template(
+            """ 
             {log_context} 
             ## 当前需要分析的问题: 
             {query} 
 
-            请基于以上信息，提供详细的分析报告: 
-        """)
+            请基于以上信息，提供一个使用 Markdown 格式化的详细分析报告: 
+        """
+        )
 
         # 创建提示词
-        prompt = ChatPromptTemplate.from_messages([
-            system_message,
-            user_message
-        ])
+        prompt = ChatPromptTemplate.from_messages([system_message, user_message])
 
-        return prompt.format_prompt(
-            log_context=log_context,
-            query=query
-        ).to_messages()
+        return prompt.format_prompt(log_context=log_context, query=query).to_messages()
 
         # 执行查询
 
@@ -171,10 +182,7 @@ class TopKLogSystem:
         log_results = self.retrieve_logs(query)
         response = self.generate_response(query, log_results)  # 生成响应
 
-        return {
-            "response": response,
-            "retrieval_stats": len(log_results)
-        }
+        return {"response": response, "retrieval_stats": len(log_results)}
 
     # 示例使用
 
@@ -182,9 +190,7 @@ class TopKLogSystem:
 if __name__ == "__main__":
     # 初始化系统
     system = TopKLogSystem(
-        log_path="./data/log",
-        llm="deepseek-r1:7b",
-        embedding_model="bge-large:latest"
+        log_path="./data/log", llm="deepseek-r1:7b", embedding_model="bge-large:latest"
     )
 
     # 执行查询
