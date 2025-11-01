@@ -5,7 +5,7 @@ export const useStore = defineStore('main', {
     apiKey: localStorage.getItem('apiKey') || null,
     currentSession: localStorage.getItem('currentSession') || 'default_session',
     sessions: JSON.parse(localStorage.getItem('sessions') || '["default_session"]'),
-    messages: {}, // (e.g., { 'session_id': [ { id, isUser, content, thought_process, duration, timestamp } ] })
+    messages: {}, // (e.g., { 'session_id': [ { id, isUser, content, think_process, duration, timestamp } ] })
     loading: false,
     error: null
   }),
@@ -60,7 +60,7 @@ export const useStore = defineStore('main', {
         id: Date.now() + Math.random(), // (修改) 增加随机性确保唯一
         isUser,
         content: '', // (修改) 默认空
-        thought_process: '', // (修改) 默认空
+        think_process: '', // (修改) 默认空
         duration: null, // (修改) 默认 null
         ...messagePayload, // (修改) 覆盖默认值
         timestamp: new Date()
@@ -89,12 +89,12 @@ export const useStore = defineStore('main', {
       if (payload.content_chunk) {
         lastMessage.content += payload.content_chunk;
       }
-      if (payload.thought_chunk) {
-        // (修复) 确保 thought_process 是字符串
-        if (lastMessage.thought_process === null || lastMessage.thought_process === undefined) {
-          lastMessage.thought_process = "";
+      if (payload.think_chunk) {
+        // (修复) 确保 think_process 是字符串
+        if (lastMessage.think_process === null || lastMessage.think_process === undefined) {
+          lastMessage.think_process = "";
         }
-        lastMessage.thought_process += payload.thought_chunk;
+        lastMessage.think_process += payload.think_chunk;
       }
       // (新增) 设置最终元数据
       if (payload.duration) {
@@ -122,7 +122,7 @@ export const useStore = defineStore('main', {
               {
                 content: currentMessage.content,
                 // (修复) 历史记录没有思考过程
-                thought_process: null,
+                think_process: null,
                 duration: null
               }
             );
@@ -139,7 +139,7 @@ export const useStore = defineStore('main', {
               currentMessage.isUser,
               {
                 content: currentMessage.content,
-                thought_process: null,
+                think_process: null,
                 duration: null
               }
             );
@@ -158,7 +158,7 @@ export const useStore = defineStore('main', {
           currentMessage.isUser,
           {
             content: currentMessage.content,
-            thought_process: null,
+            think_process: null,
             duration: null
           }
         );

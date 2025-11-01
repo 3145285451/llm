@@ -19,7 +19,7 @@ class ChatIn(Schema):
 
 class ChatOut(Schema):
     content: str  # 最终回复
-    thought_process: Optional[str] = None  # 思考过程
+    think_process: Optional[str] = None  # 思考过程
     duration: Optional[float] = None  # 耗时
 
 

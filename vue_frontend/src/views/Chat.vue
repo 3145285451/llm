@@ -39,7 +39,7 @@
           :key="msg.id"
           :is-user="msg.isUser"
           :content="msg.content"
-          :thought-process="msg.thought_process" 
+          :think-process="msg.think_process" 
           :duration="msg.duration"
           :timestamp="msg.timestamp"
         />
@@ -51,7 +51,7 @@
                 messages.length > 0 && 
                 !messages[messages.length - 1].isUser && 
                 !messages[messages.length - 1].content && 
-                !messages[messages.length - 1].thought_process" 
+                !messages[messages.length - 1].think_process" 
           class="loading-indicator"
         >
           <div class="loading"></div>
@@ -156,7 +156,7 @@ const handleSendMessage = async (content) => {
   // 2. 添加一个空的 AI 回复消息
   const aiMessageId = store.addMessage(sessionId, false, { 
     content: '', 
-    thought_process: '' 
+    think_process: '' 
   });
   await scrollToBottom(); // (新增) 滚动
   
@@ -172,8 +172,8 @@ const handleSendMessage = async (content) => {
       // (修改) 方案 5：后端已解析
       if (data.type === 'content') {
         store.updateLastMessage(sessionId, { content_chunk: data.chunk });
-      } else if (data.type === 'thought') {
-        store.updateLastMessage(sessionId, { thought_chunk: data.chunk });
+      } else if (data.type === 'think') {
+        store.updateLastMessage(sessionId, { think_chunk: data.chunk });
       } else if (data.type === 'metadata') {
         store.updateLastMessage(sessionId, { duration: data.duration });
       } else if (data.type === 'error') {

@@ -100,7 +100,7 @@ def chat(request, data: ChatIn):
         try:
             # (修改) 迭代 services.py 中的流
             for raw_chunk in deepseek_r1_api_call(user_input, conversation_history):
-
+                print(raw_chunk)
                 # (新增) 检查 services.py 发来的特殊元数据块
                 if raw_chunk.startswith("[METADATA_CHUNK]:"):
                     try:
@@ -122,8 +122,8 @@ def chat(request, data: ChatIn):
                 # 循环处理缓冲区，直到缓冲区被清空或需要更多数据
                 while True:
                     if not is_thinking:
-                        # 1. 尝试查找 <thought> 开始
-                        start_index = buffer.find("<thought>")
+                        # 1. 尝试查找 <think> 开始
+                        start_index = buffer.find("<think>")
                         if start_index != -1:
                             # 找到了
                             before = buffer[:start_index]
@@ -133,13 +133,13 @@ def chat(request, data: ChatIn):
                                 ) + "\n\n"
                                 full_clean_reply += before
 
-                            buffer = buffer[start_index + len("<thought>") :]
+                            buffer = buffer[start_index + len("<think>") :]
                             is_thinking = True
-                            # (修复) 继续循环，立即处理 <thought> 后的内容
+                            # (修复) 继续循环，立即处理 <think> 后的内容
                             continue
                         else:
                             # [!!! 修复 !!!]
-                            # 没找到 <thought>，意味着整个缓冲区都是 content
+                            # 没找到 <think>，意味着整个缓冲区都是 content
                             # yield 它，然后清空缓冲区，等待下一个 chunk
                             if buffer:
                                 yield "data: " + json.dumps(
@@ -150,38 +150,38 @@ def chat(request, data: ChatIn):
                             break  # 退出 while 循环，等待下一个 raw_chunk
 
                     if is_thinking:
-                        # 2. 尝试查找 </thought> 结束
-                        end_index = buffer.find("</thought>")
+                        # 2. 尝试查找 </think> 结束
+                        end_index = buffer.find("</think>")
                         if end_index != -1:
                             # 找到了
-                            thought_chunk = buffer[:end_index]
-                            if thought_chunk:
+                            think_chunk = buffer[:end_index]
+                            if think_chunk:
                                 yield "data: " + json.dumps(
-                                    {"type": "thought", "chunk": thought_chunk}
+                                    {"type": "think", "chunk": think_chunk}
                                 ) + "\n\n"
 
-                            buffer = buffer[end_index + len("</thought>") :]
+                            buffer = buffer[end_index + len("</think>") :]
                             is_thinking = False
-                            # (修复) 继续循环，立即处理 </thought> 后的内容
+                            # (修复) 继续循环，立即处理 </think> 后的内容
                             continue
                         else:
-                            # 没找到结束标签，意味着整个缓冲区都是 thought
+                            # 没找到结束标签，意味着整个缓冲区都是 think
                             if buffer:
                                 yield "data: " + json.dumps(
-                                    {"type": "thought", "chunk": buffer}
+                                    {"type": "think", "chunk": buffer}
                                 ) + "\n\n"
                                 buffer = ""
                             break  # 退出 while 循环，等待下一个 raw_chunk
 
                     # (修复) 如果代码执行到这里，意味着在一次循环中
-                    # 既处理了 <ctrl3347> 又处理了 </thought>，
+                    # 既处理了 <ctrl3347> 又处理了 </think>，
                     # 应该继续循环检查剩余的 buffer
 
             # (循环结束) 处理剩余缓冲区
             if is_thinking and buffer:
                 # 不太可能发生，但作为保险
                 yield "data: " + json.dumps(
-                    {"type": "thought", "chunk": buffer}
+                    {"type": "think", "chunk": buffer}
                 ) + "\n\n"
             elif buffer:
                 yield "data: " + json.dumps(

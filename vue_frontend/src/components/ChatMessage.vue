@@ -9,23 +9,23 @@
       
       <!-- (新增) 深度思考模块 -->
       <div 
-        v-if="!isUser && thoughtProcess" 
-        class="thought-container"
+        v-if="!isUser && thinkProcess" 
+        class="think-container"
       >
         <div 
-          class="thought-header" 
-          @click="showThoughtProcess = !showThoughtProcess"
+          class="think-header" 
+          @click="showthinkProcess = !showthinkProcess"
         >
-          <div class="thought-title">
+          <div class="think-title">
             <brain-icon class="icon" />
             <!-- (修改) 文本从“深度思考中...”改为动态显示 -->
-            <span>{{ showThoughtProcess ? '隐藏思考过程' : '查看思考过程' }}</span>
+            <span>{{ showthinkProcess ? '隐藏思考过程' : '查看思考过程' }}</span>
           </div>
-          <div class="thought-meta">
+          <div class="think-meta">
             <!-- (修改) 增加“思考”二字，更明确 -->
             <span>思考耗时: {{ duration }}s</span>
             <chevron-down 
-              v-if="!showThoughtProcess" 
+              v-if="!showthinkProcess" 
               class="icon chevron"
             />
             <chevron-up 
@@ -36,9 +36,9 @@
         </div>
         <!-- (新增) 可折叠内容 -->
         <div 
-          v-if="showThoughtProcess" 
-          class="thought-content" 
-          v-html="renderedThoughtProcess"
+          v-if="showthinkProcess" 
+          class="think-content" 
+          v-html="renderedthinkProcess"
         >
         </div>
       </div>
@@ -77,7 +77,7 @@ const props = defineProps({
     required: true
   },
   // (新增) 深度思考 props
-  thoughtProcess: {
+  thinkProcess: {
     type: String,
     default: null
   },
@@ -88,7 +88,7 @@ const props = defineProps({
 });
 
 // (新增) 折叠状态
-const showThoughtProcess = ref(false);
+const showthinkProcess = ref(false);
 
 // 计算属性，用于解析 AI 的 Markdown 回复
 const renderedMarkdown = computed(() => {
@@ -104,12 +104,12 @@ const renderedMarkdown = computed(() => {
 });
 
 // (新增) 计算属性，用于解析 AI 的思考过程
-const renderedThoughtProcess = computed(() => {
-  if (!props.thoughtProcess) {
+const renderedthinkProcess = computed(() => {
+  if (!props.thinkProcess) {
     return '';
   }
   // 使用 marked 解析 Markdown
-  return marked.parse(props.thoughtProcess || '', {
+  return marked.parse(props.thinkProcess || '', {
     gfm: true,
     breaks: true,
     headerIds: false,
@@ -212,7 +212,7 @@ const formatTime = (date) => {
 
 
 /* (新增) 深度思考模块样式 */
-.thought-container {
+.think-container {
   background-color: rgba(0, 0, 0, 0.03); /* 嵌套在气泡内，颜色稍暗 */
   border-bottom: 1px solid var(--border-color);
   /* 移除顶部圆角，因为它在顶部 */
@@ -220,7 +220,7 @@ const formatTime = (date) => {
   border-top-right-radius: var(--radius);
 }
 
-.thought-header {
+.think-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -229,11 +229,11 @@ const formatTime = (date) => {
   user-select: none;
 }
 
-.thought-header:hover {
+.think-header:hover {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-.thought-title {
+.think-title {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -241,7 +241,7 @@ const formatTime = (date) => {
   color: var(--text-secondary);
 }
 
-.thought-meta {
+.think-meta {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -259,7 +259,7 @@ const formatTime = (date) => {
   transition: transform 0.2s ease;
 }
 
-.thought-content {
+.think-content {
   padding: 0.75rem 1rem; /* (修改) 匹配气泡 padding */
   background-color: rgba(255, 255, 255, 0.5); /* 稍亮的背景 */
   
@@ -268,27 +268,27 @@ const formatTime = (date) => {
 }
 
 /* (新增) :deep() 样式，用于 v-html 渲染的思考过程 */
-:deep(.thought-content p) {
+:deep(.think-content p) {
   margin-bottom: 0.5rem;
 }
-:deep(.thought-content p:last-child) {
+:deep(.think-content p:last-child) {
   margin-bottom: 0;
 }
-:deep(.thought-content ul),
-:deep(.thought-content ol) {
+:deep(.think-content ul),
+:deep(.think-content ol) {
   padding-left: 1.5rem;
   margin-bottom: 0.5rem;
 }
-:deep(.thought-content li) {
+:deep(.think-content li) {
   margin-bottom: 0.25rem;
 }
-:deep(.thought-content code) {
+:deep(.think-content code) {
   background-color: var(--border-color);
   padding: 0.2em 0.4em;
   border-radius: 4px;
   font-family: 'Consolas', 'Monaco', monospace;
 }
-:deep(.thought-content strong) {
+:deep(.think-content strong) {
   font-weight: 600;
 }
 </style>

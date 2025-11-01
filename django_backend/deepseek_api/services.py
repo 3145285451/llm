@@ -31,7 +31,7 @@ def deepseek_r1_api_call(
 ):  # -> Generator[str, None, None]
     """
     (修改) 调用 DeepSeek-R1 API 函数 - 流式。
-    (修改) 返回 *原始* 文本块 (包含 <thought>) 的生成器。
+    (修改) 返回 *原始* 文本块 (包含 <think>) 的生成器。
     """
 
     if log_system is None:
