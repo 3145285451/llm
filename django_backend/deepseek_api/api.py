@@ -13,7 +13,8 @@ from .services import (
 )
 from datetime import datetime
 import logging
-import re  # (修复) 导入 re 用于清理
+import re  # (修复) 导入 re
+import time  # (新增) 导入 time
 
 logger = logging.getLogger(__name__)
 
@@ -75,27 +76,34 @@ def chat(request, data: ChatIn):
 
     conversation_history = session.get_conversation_history()
 
-    # (修复) 步骤 1: 获取原始回复
-    reply_raw = deepseek_r1_api_call(user_input, conversation_history)
+    # (修复) 步骤 1: 获取原始回复和耗时
+    response_data = deepseek_r1_api_call(user_input, conversation_history)
+    reply_raw = response_data["raw_reply"]
+    duration = response_data["duration"]
 
-    # (修复) 步骤 2: 清理 <think> 标签
+    # (修复) 步骤 2: 提取 <think> 内容
+    thought_content = ""
+    match = re.search(r"<think>(.*?)</think>", reply_raw, re.DOTALL)
+    if match:
+        thought_content = match.group(1).strip()
+
+    # (修复) 步骤 3: 清理 <think> 标签
     reply_clean = clean_llm_reply(reply_raw)
 
-    # (修复) 步骤 3: 使用清理后的回复设置缓存
-    # 注意：缓存键应该基于 user_input，而不是 prompt_for_cache，
-    # 因为 prompt_for_cache 依赖于可能很长的 session.context
-    # 这里我们暂时保留原逻辑，但建议修改
+    # (修复) 步骤 4: 使用清理后的回复设置缓存
     set_cached_reply(prompt_for_cache, reply_clean, session_id, user)
 
-    # (修复) 步骤 4: 使用清理后的回复更新上下文
+    # (修复) 步骤 5: 使用清理后的回复更新上下文
     session.update_context(user_input, reply_clean)
 
     print("666\n", user_input)
     print(reply_clean)  # (修复) 打印清理后的回复
 
+    # (修复) 步骤 6: 返回新结构
     return {
-        "reply": reply_clean,  # (修复) 返回清理后的回复
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "content": reply_clean,
+        "thought_process": thought_content or None,  # 确保 None 而不是空字符串
+        "duration": duration,
     }
 
 

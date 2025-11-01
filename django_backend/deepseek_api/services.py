@@ -32,15 +32,18 @@ rate_lock = threading.Lock()
 
 
 # (修改) 更新 deepseek_r1_api_call
-def deepseek_r1_api_call(prompt: str, conversation_history: List[Dict] = None) -> str:
+def deepseek_r1_api_call(prompt: str, conversation_history: List[Dict] = None) -> Dict:
     """
     调用 DeepSeek-R1 API 函数。
     (修改) 现在分别传递 'prompt' (当前查询) 和 'conversation_history' (历史)
+    (修改) 返回包含原始回复和耗时的字典
     """
 
     if log_system is None:
         logger.error("Log system 未初始化，返回错误。")
-        return "错误：日志分析系统未成功初始化。"
+        return {"raw_reply": "错误：日志分析系统未成功初始化。", "duration": 0.0}
+
+    start_time = time.time()  # 计时开始
 
     # (修改) 使用全局的 log_system 实例
     # (修改) 调用更新后的 query 方法，该方法接受 history
@@ -49,8 +52,10 @@ def deepseek_r1_api_call(prompt: str, conversation_history: List[Dict] = None) -
 
     time.sleep(0.5)  # 保留原始延迟
 
-    # print(result["response"]) # (保留)
-    return result["response"]
+    end_time = time.time()  # 计时结束
+    elapsed_time = round(end_time - start_time, 2)
+
+    return {"raw_reply": result["response"], "duration": elapsed_time}
 
 
 def create_api_key(username: str) -> str:

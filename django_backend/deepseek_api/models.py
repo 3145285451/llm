@@ -1,14 +1,9 @@
 from django.db import models
-from django.db.models import F, Value
-from django.db.models.functions import (
-    Concat,
-    Coalesce,
-)
+from django.db.models import F
 import string
 import random
 import time
 import logging
-import re  # (修复) 导入 re
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +14,16 @@ class APIKey(models.Model):
     key = models.CharField(max_length=32, unique=True)
     user = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
-    expiry_time = models.IntegerField()
+    expiry_time = models.IntegerField()  # 过期时间戳
 
     @classmethod
     def generate_key(cls, length=32):
+        """生成随机 API Key"""
         characters = string.ascii_letters + string.digits
         return "".join(random.choice(characters) for _ in range(length))
 
     def is_valid(self):
+        """检查 API Key 是否未过期"""
         return time.time() < self.expiry_time
 
     def __str__(self):
@@ -42,12 +39,13 @@ class RateLimit(models.Model):
         related_name="rate_limits",
     )
     count = models.IntegerField(default=0)
-    reset_time = models.IntegerField()
+    reset_time = models.IntegerField()  # 重置时间戳
 
     class Meta:
         indexes = [models.Index(fields=["api_key", "reset_time"])]
 
     def should_limit(self, max_requests, interval):
+        """检查是否应该限制请求"""
         current_time = time.time()
         if current_time > self.reset_time:
             self.count = 0
@@ -59,70 +57,58 @@ class RateLimit(models.Model):
 
 class ConversationSession(models.Model):
     session_id = models.CharField(max_length=100)
+    # 正确的外键定义：关联 APIKey 的 id（默认）
     user = models.ForeignKey(APIKey, on_delete=models.CASCADE, related_name="sessions")
-    context = models.TextField(blank=True, default="")
+    context = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("session_id", "user")
+        unique_together = ("session_id", "user")  # 确保用户+会话ID唯一
 
     def update_context(self, user_input, bot_reply):
+        """原子更新上下文，避免并发覆盖"""
         new_entry = f"用户：{user_input}\n回复：{bot_reply}\n"
-        ConversationSession.objects.filter(pk=self.pk, user=self.user).update(
-            context=Concat(
-                Coalesce("context", Value("")),
-                Value(new_entry),
-            )
-        )
+        # 数据库层面拼接，而非内存中
+        ConversationSession.objects.filter(
+            pk=self.pk, user=self.user  # 精确匹配当前会话  # 确保用户一致
+        ).update(context=F("context") + new_entry)
+        # 刷新实例，获取更新后的值
         self.refresh_from_db()
 
+        # import logging
+        # logger = logging.getLogger(__name__)
+        # logger.info(f"更新会话 {self.session_id}（用户：{self.user.key}）：{new_entry}")
+
     def clear_context(self):
+        """清空对话上下文"""
         self.context = ""
         self.save()
 
-    # (修复) 重写 get_conversation_history 以支持多行
     def get_conversation_history(self):
         """
-        (修复版) 将上下文解析为结构化的对话历史列表
-        (新版：可以正确处理多行回复)
+        将上下文解析为结构化的对话历史列表
         返回格式: [{'role': 'user', 'content': 'xxx'}, {'role': 'assistant', 'content': 'yyy'}]
         """
         history = []
         if not self.context:
             return history
 
-        # 使用 "用户：" 作为分隔符，来切分每一轮对话
-        # filter(None, ...) 会移除切分后可能产生的空字符串（比如开头就是"用户："）
-        turns = filter(None, self.context.strip().split("用户："))
-
-        for turn_text in turns:
-            # 每一轮对话现在都以用户输入开头，
-            # 并可能包含 "回复："
-
-            # 使用 "回复：" 来分割用户输入和助手回复
-            # maxsplit=1 确保只在第一个 "回复：" 处分割
-            parts = turn_text.split("回复：", 1)
-
-            user_msg = parts[0].strip()
-            if user_msg:
-                history.append({"role": "user", "content": user_msg})
-
-            if len(parts) > 1:
-                # parts[1] 包含从 "回复：" 之后到下一个 "用户：" 之前的所有内容
-                assistant_msg = parts[1].strip()
-
-                # (双重保险) 再次清理 <think> 标签，以防数据库中存有旧的脏数据
-                assistant_msg_clean = re.sub(
-                    r"<think>.*?</think>\s*", "", assistant_msg, flags=re.DOTALL
-                ).strip()
-
-                if assistant_msg_clean:
-                    history.append(
-                        {"role": "assistant", "content": assistant_msg_clean}
-                    )
-                # (移除 else) 如果清理后为空，就不添加了
-
+        lines = self.context.strip().split("\n")
+        i = 0
+        while i < len(lines):
+            if lines[i].startswith("用户："):
+                user_msg = lines[i][3:]  # 去掉"用户："前缀
+                i += 1
+                if i < len(lines) and lines[i].startswith("回复："):
+                    assistant_msg = lines[i][3:]  # 去掉"回复："前缀
+                    history.append({"role": "user", "content": user_msg})
+                    history.append({"role": "assistant", "content": assistant_msg})
+                    i += 1
+                else:
+                    history.append({"role": "user", "content": user_msg})
+            else:
+                i += 1
         return history
 
     def __str__(self):

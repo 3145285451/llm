@@ -39,6 +39,8 @@
           :key="msg.id"
           :is-user="msg.isUser"
           :content="msg.content"
+          :thought-process="msg.thought_process" 
+          :duration="msg.duration"
           :timestamp="msg.timestamp"
         />
         
@@ -116,17 +118,17 @@ const handleCreateSession = (sessionId) => {
   store.clearSessionMessages(sessionId);
 };
 
-// 处理发送消息
+// (修改) 处理发送消息
 const handleSendMessage = async (content) => {
-  // 添加用户消息到界面
-  store.addMessage(currentSession.value, true, content);
+  // 添加用户消息到界面 (包装成对象)
+  store.addMessage(currentSession.value, true, { content: content });
   
   try {
     store.setLoading(true);
     // 调用API发送消息
     const response = await api.chat(currentSession.value, content);
-    // 添加机器人回复到界面
-    store.addMessage(currentSession.value, false, response.data.reply);
+    // 添加机器人回复到界面 (response.data 已经是 { content, thought_process, duration })
+    store.addMessage(currentSession.value, false, response.data);
   } catch (err) {
     store.setError(err.response?.data?.error || '发送消息失败');
   } finally {

@@ -6,17 +6,51 @@
       </div>
     </div>
     <div class="message-content">
-      <!-- 
-        安全更新：
-        - 用户消息 (isUser: true) 使用 {{ content }} 纯文本插值，防止 XSS。
-        - AI 消息 (isUser: false) 使用 v-html 渲染 Markdown 解析后的 HTML。
-      -->
+      
+      <!-- (新增) 深度思考模块 -->
+      <div 
+        v-if="!isUser && thoughtProcess" 
+        class="thought-container"
+      >
+        <div 
+          class="thought-header" 
+          @click="showThoughtProcess = !showThoughtProcess"
+        >
+          <div class="thought-title">
+            <brain-icon class="icon" />
+            <!-- (修改) 文本从“深度思考中...”改为动态显示 -->
+            <span>{{ showThoughtProcess ? '隐藏思考过程' : '查看思考过程' }}</span>
+          </div>
+          <div class="thought-meta">
+            <!-- (修改) 增加“思考”二字，更明确 -->
+            <span>思考耗时: {{ duration }}s</span>
+            <chevron-down 
+              v-if="!showThoughtProcess" 
+              class="icon chevron"
+            />
+            <chevron-up 
+              v-else 
+              class="icon chevron"
+            />
+          </div>
+        </div>
+        <!-- (新增) 可折叠内容 -->
+        <div 
+          v-if="showThoughtProcess" 
+          class="thought-content" 
+          v-html="renderedThoughtProcess"
+        >
+        </div>
+      </div>
+
+      <!-- 最终回复 -->
       <div v-if="isUser" class="message-text">
         {{ content }}
       </div>
       <div v-else class="message-text" v-html="renderedMarkdown">
       </div>
 
+      <!-- 时间戳 -->
       <div class="message-time">
         {{ formatTime(timestamp) }}
       </div>
@@ -25,8 +59,9 @@
 </template>
 
 <script setup>
-import { computed, defineProps } from 'vue';
+import { computed, defineProps, ref } from 'vue'; // (修改) 导入 ref
 import { marked } from 'marked'; // 导入 marked 库
+import { BrainIcon, ChevronDownIcon, ChevronUpIcon } from 'vue-tabler-icons'; // (新增) 导入图标
 
 const props = defineProps({
   isUser: {
@@ -40,20 +75,45 @@ const props = defineProps({
   timestamp: {
     type: Date,
     required: true
+  },
+  // (新增) 深度思考 props
+  thoughtProcess: {
+    type: String,
+    default: null
+  },
+  duration: {
+    type: Number,
+    default: null
   }
 });
+
+// (新增) 折叠状态
+const showThoughtProcess = ref(false);
 
 // 计算属性，用于解析 AI 的 Markdown 回复
 const renderedMarkdown = computed(() => {
   if (props.isUser) {
-    return props.content; // 理论上不会执行，因为 v-if="isUser" 已处理
+    return props.content; 
+  }
+  return marked.parse(props.content || '', {
+    gfm: true,
+    breaks: true,
+    headerIds: false,
+    mangle: false,
+  });
+});
+
+// (新增) 计算属性，用于解析 AI 的思考过程
+const renderedThoughtProcess = computed(() => {
+  if (!props.thoughtProcess) {
+    return '';
   }
   // 使用 marked 解析 Markdown
-  return marked.parse(props.content || '', {
-    gfm: true,      // 启用 GitHub Flavored Markdown
-    breaks: true,   // 将单个换行符渲染为 <br>
-    headerIds: false, // 不生成 header id
-    mangle: false,    // 不混淆 email
+  return marked.parse(props.thoughtProcess || '', {
+    gfm: true,
+    breaks: true,
+    headerIds: false,
+    mangle: false,
   });
 });
 
@@ -76,6 +136,7 @@ const formatTime = (date) => {
 
 .message-avatar {
   margin-right: 0.5rem;
+  flex-shrink: 0;
 }
 
 .user-message .message-avatar {
@@ -104,10 +165,12 @@ const formatTime = (date) => {
   color: white;
 }
 
+/* (修改) 调整 .message-content padding */
 .message-content {
-  padding: 0.75rem 1rem;
+  padding: 0; /* (修改) 移除 padding */
   border-radius: var(--radius);
   position: relative;
+  width: 100%; /* (新增) 确保占满宽度 */
 }
 
 .message:not(.user-message) .message-content {
@@ -116,9 +179,12 @@ const formatTime = (date) => {
 
 .user-message .message-content {
   background-color: var(--user-message);
+  padding: 0.75rem 1rem; /* (恢复) 用户消息不受影响 */
 }
 
+/* (修改) .message-text (最终回复) 现在需要自己的 padding */
 .message-text {
+  padding: 0.75rem 1rem;
   margin-bottom: 0.25rem;
   line-height: 1.5;
   /* v-html 内容是动态插入的，'scoped' 样式无法应用到它们。
@@ -128,16 +194,101 @@ const formatTime = (date) => {
 }
 
 .user-message .message-text {
-  /* 对于用户的纯文本消息，我们希望保留换行符。
-    v-if="isUser" 使用 {{ content }} 会丢失换行，
-    所以我们用 white-space: pre-wrap 来保留它们。
-  */
+  padding: 0; /* (恢复) 用户消息的 text 也不受影响 */
   white-space: pre-wrap;
 }
 
+/* (修改) 时间戳也需要 padding */
 .message-time {
   font-size: 0.75rem;
   color: var(--text-secondary);
   text-align: right;
+  padding: 0 1rem 0.5rem; /* (新增 padding) */
+}
+
+.user-message .message-time {
+  padding: 0; /* (恢复) 用户消息不受影响 */
+}
+
+
+/* (新增) 深度思考模块样式 */
+.thought-container {
+  background-color: rgba(0, 0, 0, 0.03); /* 嵌套在气泡内，颜色稍暗 */
+  border-bottom: 1px solid var(--border-color);
+  /* 移除顶部圆角，因为它在顶部 */
+  border-top-left-radius: var(--radius);
+  border-top-right-radius: var(--radius);
+}
+
+.thought-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem; /* (修改) 匹配气泡 padding */
+  cursor: pointer;
+  user-select: none;
+}
+
+.thought-header:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.thought-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.thought-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0; /* (新增) 防止图标被压缩 */
+}
+
+.chevron {
+  transition: transform 0.2s ease;
+}
+
+.thought-content {
+  padding: 0.75rem 1rem; /* (修改) 匹配气泡 padding */
+  background-color: rgba(255, 255, 255, 0.5); /* 稍亮的背景 */
+  
+  /* (新增) 确保 v-html 渲染的内容样式正确 */
+  /* 使用 :deep() 为 v-html 内容设置样式 */
+}
+
+/* (新增) :deep() 样式，用于 v-html 渲染的思考过程 */
+:deep(.thought-content p) {
+  margin-bottom: 0.5rem;
+}
+:deep(.thought-content p:last-child) {
+  margin-bottom: 0;
+}
+:deep(.thought-content ul),
+:deep(.thought-content ol) {
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+:deep(.thought-content li) {
+  margin-bottom: 0.25rem;
+}
+:deep(.thought-content code) {
+  background-color: var(--border-color);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+:deep(.thought-content strong) {
+  font-weight: 600;
 }
 </style>

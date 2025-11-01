@@ -206,7 +206,7 @@ class TopKLogSystem:
             * **d. 建议方案 (Actionable Steps):**
                 * (提出具体的解决步骤或进一步的排查指令。)
 
-            **步骤 4: 草拟最终回复 (Draft Final Response)**
+            **步骤 4: 最终回复 (Draft Final Response)**
             * (基于 [步骤2] 或 [步骤3] 的分析，在此处草拟给用户的最终回复。确保使用 Markdown 格式，并且不包含任何 <thought> 标签。)
             </thought>
 
