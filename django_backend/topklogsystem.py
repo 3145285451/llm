@@ -34,6 +34,9 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# (新增) 导入 re
+import re
+
 
 class TopKLogSystem:
     def __init__(
@@ -117,33 +120,25 @@ class TopKLogSystem:
             logger.error(f"日志检索失败: {e}")
             return []
 
+    # (修改) generate_response 改为流式生成器
     def generate_response(
         self, query: str, context: Dict, history: List[Dict] = None
-    ) -> str:
+    ):  # -> Generator[str, None, None]:
         prompt_messages = self._build_prompt(query, context, history)
         try:
-            response_message = self.llm.invoke(prompt_messages)
-
-            # (*** 关键修复 ***)
-            # 移除模型可能意外泄露的 <thought> 标签
-            # 这是一个双重保险，以防模型没有完全遵循指示
-            import re
-
-            clean_response = re.sub(
-                r"<thought>.*?</thought>\s*", "", response_message, flags=re.DOTALL
-            )
-            return clean_response.strip()
+            # (修改) 使用 stream 并 yield 原始块
+            for chunk in self.llm.stream(prompt_messages):
+                yield chunk
 
         except Exception as e:
             logger.error(f"LLM调用失败: {e}")
-            return f"生成响应时出错: {str(e)}"
+            yield f"生成响应时出错: {str(e)}"  # 作为单个错误块返回
 
     def _build_prompt(
         self, query: str, context: Dict, history: List[Dict] = None
     ) -> List:
 
-        # 1. (*** 优化 ***) System 角色：从 "SRE专家" 变为 "智能SRE路由"
-        # 保持不变。这使得模型在处理常规对话时，不会被SRE身份束缚。
+        # 1. (*** 修复 ***) 强化 System 角色
         system_message = SystemMessagePromptTemplate.from_template(
             """
             你是一个多任务SRE助手。你的首要任务是 **[判断意图]**，然后根据意图选择正确的 **[响应模式]**。
@@ -156,12 +151,14 @@ class TopKLogSystem:
             1.  **专业严谨**：在 [SRE分析模式] 下，你的分析必须基于上下文（日志或历史），严禁凭空猜测。
             2.  **清晰可读**：使用 Markdown 格式（如列表、代码块、粗体）来组织你的回答。
             
-            **[重要]** 你的最终回答**绝不能**包含 `<thought>...</thought>` 标签内的任何内容。只输出最终的分析报告或回复。
+            **[!!! 绝对指令 !!!]**
+            你 **必须** 使用 `<thought>...</thought>` 标签来包裹你的所有内部思考步骤。
+            你的最终回复 (面向用户) **绝不能** 包含 `<thought>` 标签或 "步骤 1", "步骤 2" 等分析字样。
+            用户 **永远** 不应该看到 `<thought>` 和 `</thought>` 标签。
             """
         )
 
-        # 2. (*** 优化 ***) 准备日志上下文
-        # 保持不变。
+        # 2. 准备日志上下文
         log_context_str = "## [可用工具 (SRE模式专用)] 相关日志参考:\n"
         if not context:
             log_context_str += "（未检索到相关历史日志，仅在SRE模式下报告此信息）\n"
@@ -169,8 +166,7 @@ class TopKLogSystem:
             for i, log in enumerate(context, 1):
                 log_context_str += f"日志 {i} : {log['content']}\n"
 
-        # 3. (*** 优化 ***) 改变 User 模板的结构
-        # (关键) 注入 SRE 模式的“深度思考” (Chain-of-Thought) 框架
+        # 3. (*** 修复 ***) 强化 User 模板的结构
         user_message_template = HumanMessagePromptTemplate.from_template(
             """
             ## [可用工具 (SRE模式专用)]
@@ -207,10 +203,10 @@ class TopKLogSystem:
                 * (提出具体的解决步骤或进一步的排查指令。)
 
             **步骤 4: 最终回复 (Draft Final Response)**
-            * (基于 [步骤2] 或 [步骤3] 的分析，在此处草拟给用户的最终回复。确保使用 Markdown 格式，并且不包含任何 <thought> 标签。)
+            * (基于 [步骤2] 或 [步骤3] 的分析，在此处草拟给用户的最终回复。确保使用 Markdown 格式，并且不包含任何 <thought> 标签或分析步骤字样。)
             </thought>
 
-            (在此处输出你在 [步骤 4] 中草拟的、面向用户的最终回复)
+            [此处开始是给用户的最终回复]
             """
         )
 
@@ -228,60 +224,87 @@ class TopKLogSystem:
                 if msg["role"] == "user":
                     formatted_history.append(HumanMessage(content=msg["content"]))
                 elif msg["role"] == "assistant":
+                    # (*** 关键修复 ***)
+                    # 确保传入历史的 AI 回复也是清理过的，避免污染上下文
+                    clean_content = re.sub(
+                        r"<ctrl3347>.*?<ctrl3348>\s*",
+                        "",
+                        msg["content"],
+                        flags=re.DOTALL,
+                    )
+                    formatted_history.append(AIMessage(content=clean_content.strip()))
+                else:
+                    # 容错
                     formatted_history.append(AIMessage(content=msg["content"]))
 
         return prompt_template.format_prompt(
             chat_history=formatted_history,
-            log_context=log_context_str,  # (修改) 传递格式化后的字符串
+            log_context=log_context_str,
             query=query,
         ).to_messages()
 
-    def query(self, query: str, history: List[Dict] = None) -> Dict:
+    def query(
+        self, query: str, history: List[Dict] = None
+    ):  # -> Generator[str, None, None]:
         # RAG (检索) 仍然总是运行
         log_results = self.retrieve_logs(query)
 
-        # LLM (生成) 会根据我们新的 Prompt 来决定是否使用 log_results
-        response = self.generate_response(query, log_results, history)
+        # LLM (生成)
+        # (修改) 迭代 generate_response 并 yield 原始文本块
+        for chunk in self.generate_response(query, log_results, history):
+            yield chunk  # yield 原始 str 块
 
-        return {"response": response, "retrieval_stats": len(log_results)}
 
-
+# (修改) if __name__ == "__main__" 部分需要修改，因为它现在是流
 if __name__ == "__main__":
     system = TopKLogSystem(
         log_path="./data/log", llm="deepseek-r1:7b", embedding_model="bge-large:latest"
     )
 
     query1 = "我遇到了数据库问题"
-    result1 = system.query(query1)
     print("查询1:", query1)
-    print("响应1:\n", result1["response"])
+    print("响应1 (流式):")
+    full_response_1 = ""
+    for chunk in system.query(query1):  # (修改) 迭代
+        print(chunk, end="", flush=True)  # (修改) 实时打印
+        full_response_1 += chunk
+    print("\n--- 流结束 ---")
 
     history_example = [
         {"role": "user", "content": query1},
-        {"role": "assistant", "content": result1["response"]},
+        {"role": "assistant", "content": full_response_1},  # (修改) 使用累积的回复
     ]
 
     # (*** 测试意图区分 B ***)
     query2 = "我刚才问了什么？"
-    result2 = system.query(query2, history=history_example)
     print("\n查询2 (测试历史对话):", query2)
-    # 预期：LLM 应该回答 "我遇到了数据库问题" (模式B)
-    print("响应2:\n", result2["response"])
+    print("响应2 (流式):")
+    full_response_2 = ""
+    for chunk in system.query(query2, history=history_example):  # (修改) 迭代
+        print(chunk, end="", flush=True)
+        full_response_2 += chunk
+    print("\n--- 流结束 ---")
 
     # (*** 测试意图区分 A ***)
     query3 = "是连接池耗尽的问题，如何解决？"
     history_example.append({"role": "user", "content": query2})
-    history_example.append({"role": "assistant", "content": result2["response"]})
+    history_example.append({"role": "assistant", "content": full_response_2})
     result3 = system.query(query3, history=history_example)
     print("\n查询3 (测试日志分析):", query3)
-    # 预期：LLM 应该使用 RAG 检索并按 SRE 框架分析 (模式A)
-    print("响应3:\n", result3["response"])
+    print("响应3 (流式):")
+    full_response_3 = ""
+    for chunk in system.query(query3, history=example_history):  # (修改) 迭代
+        print(chunk, end="", flush=True)
+        full_response_3 += chunk
+    print("\n--- 流结束 ---")
 
     # (*** 测试意图区分 C ***)
     query4 = "你好"
     history_example.append({"role": "user", "content": query3})
-    history_example.append({"role": "assistant", "content": result3["response"]})
+    history_example.append({"role": "assistant", "content": full_response_3})
     result4 = system.query(query4, history=history_example)
     print("\n查询4 (测试常规对话):", query4)
-    # 预期：LLM 应该友好回答，而不是分析日志 (模式C)
-    print("响应4:\n", result4["response"])
+    print("响应4 (流式):")
+    for chunk in system.query(query4, history=history_example):  # (修改) 迭代
+        print(chunk, end="", flush=True)
+    print("\n--- 流结束 ---")

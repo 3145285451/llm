@@ -29,7 +29,7 @@
       
       <div v-if="error" class="error-message">{{ error }}</div>
       
-      <div class="messages-container">
+      <div class="messages-container" ref="messagesContainerRef"> <!-- (新增) ref -->
         <div v-if="messages.length === 0" class="empty-state">
           开始与 DeepSeek-KAI.v.0.0.1 的对话吧！
         </div>
@@ -44,7 +44,16 @@
           :timestamp="msg.timestamp"
         />
         
-        <div v-if="loading" class="loading-indicator">
+        <!-- (修改) loading-indicator 的 v-if 条件 -->
+        <!-- 仅当 loading=true 且最后一条 (AI) 消息完全为空时显示 -->
+        <div 
+          v-if="loading && 
+                messages.length > 0 && 
+                !messages[messages.length - 1].isUser && 
+                !messages[messages.length - 1].content && 
+                !messages[messages.length - 1].thought_process" 
+          class="loading-indicator"
+        >
           <div class="loading"></div>
           <p>DeepSeek-KAI.v.0.0.1 正在思考...</p>
         </div>
@@ -59,7 +68,7 @@
 </template>
 
 <script setup>
-import { onMounted, computed } from 'vue';
+import { onMounted, computed, ref, nextTick } from 'vue'; // (新增) ref, nextTick
 import { useRouter } from 'vue-router';
 import { useStore } from '../store';
 import api from '../api';
@@ -69,6 +78,7 @@ import ChatInput from '../components/ChatInput.vue';
 
 const store = useStore();
 const router = useRouter();
+const messagesContainerRef = ref(null); // (新增) 消息容器引用
 
 // 计算属性
 const sessions = computed(() => store.sessions);
@@ -77,12 +87,22 @@ const messages = computed(() => store.messages[currentSession.value] || []);
 const loading = computed(() => store.loading);
 const error = computed(() => store.error);
 
+// (新增) 滚动到底部
+const scrollToBottom = async () => {
+  await nextTick(); // 等待 DOM 更新
+  const container = messagesContainerRef.value;
+  if (container) {
+    container.scrollTop = container.scrollHeight;
+  }
+};
+
 // 初始化加载历史记录
 const loadHistory = async (sessionId) => {
   try {
     store.setLoading(true);
     const response = await api.getHistory(sessionId);
     store.loadHistory(sessionId, response.data.history);
+    await scrollToBottom(); // (新增) 加载后滚动
   } catch (err) {
     store.setError(err.response?.data?.error || '加载历史记录失败');
   } finally {
@@ -104,9 +124,14 @@ const handleSelectSession = async (sessionId) => {
 // 处理删除会话
 const handleDeleteSession = async (sessionId) => {
   try {
+    // (修复) 确保默认会话存在
+    if (store.sessions.length === 1 && store.sessions[0] === sessionId) {
+        store.addSession('default_session');
+    }
     await api.clearHistory(sessionId);
-    store.removeSession(sessionId);
+    store.removeSession(sessionId); // (修改) store.removeSession 会自动切换会话
     store.clearSessionMessages(sessionId);
+    await loadHistory(store.currentSession); // (新增) 加载新会话的历史
   } catch (err) {
     store.setError(err.response?.data?.error || '删除会话失败');
   }
@@ -116,24 +141,58 @@ const handleDeleteSession = async (sessionId) => {
 const handleCreateSession = (sessionId) => {
   store.addSession(sessionId);
   store.clearSessionMessages(sessionId);
+  // (新增) 创建后立即加载（空）历史
+  loadHistory(sessionId);
 };
 
-// (修改) 处理发送消息
+// (修改) 处理发送消息 (流式)
 const handleSendMessage = async (content) => {
-  // 添加用户消息到界面 (包装成对象)
-  store.addMessage(currentSession.value, true, { content: content });
+  const sessionId = currentSession.value;
+
+  // 1. 添加用户消息
+  store.addMessage(sessionId, true, { content: content });
+  await scrollToBottom(); // (新增) 滚动
   
-  try {
-    store.setLoading(true);
-    // 调用API发送消息
-    const response = await api.chat(currentSession.value, content);
-    // 添加机器人回复到界面 (response.data 已经是 { content, thought_process, duration })
-    store.addMessage(currentSession.value, false, response.data);
-  } catch (err) {
-    store.setError(err.response?.data?.error || '发送消息失败');
-  } finally {
-    store.setLoading(false);
-  }
+  // 2. 添加一个空的 AI 回复消息
+  const aiMessageId = store.addMessage(sessionId, false, { 
+    content: '', 
+    thought_process: '' 
+  });
+  await scrollToBottom(); // (新增) 滚动
+  
+  store.setLoading(true);
+  store.setError(null);
+
+  // 3. 调用流式 API
+  await api.streamChat(
+    sessionId,
+    content,
+    // (onData) 接收 SSE 数据块 (JSON 对象)
+    (data) => {
+      // (修改) 方案 5：后端已解析
+      if (data.type === 'content') {
+        store.updateLastMessage(sessionId, { content_chunk: data.chunk });
+      } else if (data.type === 'thought') {
+        store.updateLastMessage(sessionId, { thought_chunk: data.chunk });
+      } else if (data.type === 'metadata') {
+        store.updateLastMessage(sessionId, { duration: data.duration });
+      } else if (data.type === 'error') {
+        store.setError(data.chunk || '流式响应出错');
+      }
+      scrollToBottom(); // (新增) 流式滚动
+    },
+    // (onError)
+    (errorMessage) => {
+      store.setLoading(false);
+      store.setError(errorMessage);
+      scrollToBottom(); // (新增) 滚动
+    },
+    // (onComplete)
+    () => {
+      store.setLoading(false);
+      scrollToBottom(); // (新增) 滚动
+    }
+  );
 };
 
 // 处理清空历史
@@ -142,7 +201,9 @@ const handleClearHistory = async () => {
     try {
       await api.clearHistory(currentSession.value);
       store.clearSessionMessages(currentSession.value);
-    } catch (err) {
+      await scrollToBottom(); // (新增) 滚动
+    } catch (err)
+ {
       store.setError(err.response?.data?.error || '清空历史记录失败');
     }
   }
@@ -181,11 +242,18 @@ const handleLogout = () => {
   gap: 0.5rem;
 }
 
+/* (修改) 确保按钮换行 */
+.user-actions button {
+  flex: 1;
+}
+
 .chat-area {
   flex: 1;
   display: flex;
   flex-direction: column;
   background-color: var(--bg-color);
+  /* (新增) 防止聊天区溢出 */
+  overflow: hidden;
 }
 
 .chat-header {
@@ -225,7 +293,10 @@ const handleLogout = () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin: 1rem auto;
+  /* (修改) 调整位置 */
+  padding: 0.5rem 1rem;
   color: var(--text-secondary);
+  max-width: 80%;
+  align-self: flex-start; /* (修改) 对齐 AI 消息 */
 }
 </style>

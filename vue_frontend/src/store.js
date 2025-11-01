@@ -5,7 +5,7 @@ export const useStore = defineStore('main', {
     apiKey: localStorage.getItem('apiKey') || null,
     currentSession: localStorage.getItem('currentSession') || 'default_session',
     sessions: JSON.parse(localStorage.getItem('sessions') || '["default_session"]'),
-    messages: {},
+    messages: {}, // (e.g., { 'session_id': [ { id, isUser, content, thought_process, duration, timestamp } ] })
     loading: false,
     error: null
   }),
@@ -56,13 +56,52 @@ export const useStore = defineStore('main', {
         this.messages[sessionId] = [];
       }
 
-      this.messages[sessionId].push({
-        id: Date.now(),
+      const newMessage = {
+        id: Date.now() + Math.random(), // (修改) 增加随机性确保唯一
         isUser,
-        ...messagePayload, // 解构 payload (e.g., { content, thought_process, duration })
+        content: '', // (修改) 默认空
+        thought_process: '', // (修改) 默认空
+        duration: null, // (修改) 默认 null
+        ...messagePayload, // (修改) 覆盖默认值
         timestamp: new Date()
-      });
+      };
+
+      this.messages[sessionId].push(newMessage);
+      return newMessage.id; // (新增) 返回新消息的 ID
     },
+
+    // (新增) 更新最后一条消息 (用于流式)
+    updateLastMessage(sessionId, payload) {
+      if (!this.messages[sessionId] || this.messages[sessionId].length === 0) {
+        return;
+      }
+
+      const lastMessageIndex = this.messages[sessionId].length - 1;
+      const lastMessage = this.messages[sessionId][lastMessageIndex];
+
+      // (修改) 确保是 AI 消息
+      if (lastMessage.isUser) {
+        console.error("Trying to update user message (stream)");
+        return;
+      }
+
+      // (新增) 累积 chunk
+      if (payload.content_chunk) {
+        lastMessage.content += payload.content_chunk;
+      }
+      if (payload.thought_chunk) {
+        // (修复) 确保 thought_process 是字符串
+        if (lastMessage.thought_process === null || lastMessage.thought_process === undefined) {
+          lastMessage.thought_process = "";
+        }
+        lastMessage.thought_process += payload.thought_chunk;
+      }
+      // (新增) 设置最终元数据
+      if (payload.duration) {
+        lastMessage.duration = payload.duration;
+      }
+    },
+
 
     // (修改) 从历史记录加载消息 (包装成新结构)
     loadHistory(sessionId, history) {
@@ -80,7 +119,12 @@ export const useStore = defineStore('main', {
             this.addMessage(
               sessionId,
               currentMessage.isUser,
-              { content: currentMessage.content }
+              {
+                content: currentMessage.content,
+                // (修复) 历史记录没有思考过程
+                thought_process: null,
+                duration: null
+              }
             );
           }
           currentMessage = {
@@ -93,7 +137,11 @@ export const useStore = defineStore('main', {
             this.addMessage(
               sessionId,
               currentMessage.isUser,
-              { content: currentMessage.content }
+              {
+                content: currentMessage.content,
+                thought_process: null,
+                duration: null
+              }
             );
           }
           currentMessage = {
@@ -108,7 +156,11 @@ export const useStore = defineStore('main', {
         this.addMessage(
           sessionId,
           currentMessage.isUser,
-          { content: currentMessage.content }
+          {
+            content: currentMessage.content,
+            thought_process: null,
+            duration: null
+          }
         );
       }
     },

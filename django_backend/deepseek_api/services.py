@@ -7,6 +7,7 @@ from .models import APIKey, RateLimit, ConversationSession
 from django.conf import settings
 from topklogsystem import TopKLogSystem  # (修改) 导入
 import logging
+import json  # (新增) 导入 json
 
 logger = logging.getLogger(__name__)
 
@@ -21,41 +22,42 @@ except Exception as e:
     log_system = None
     logger.error(f"TopKLogSystem 全局初始化失败: {e}")
 
-# 全局配置
-# API_KEY_LENGTH = 32
-# TOKEN_EXPIRY_SECONDS = 3600
-# RATE_LIMIT_MAX = 5  # 每分钟最大请求数
-# RATE_LIMIT_INTERVAL = 60
-
-# 线程锁用于速率限制
-rate_lock = threading.Lock()
+# ... (rate_lock)
 
 
-# (修改) 更新 deepseek_r1_api_call
-def deepseek_r1_api_call(prompt: str, conversation_history: List[Dict] = None) -> Dict:
+# (修改) deepseek_r1_api_call 改为流式生成器
+def deepseek_r1_api_call(
+    prompt: str, conversation_history: List[Dict] = None
+):  # -> Generator[str, None, None]
     """
-    调用 DeepSeek-R1 API 函数。
-    (修改) 现在分别传递 'prompt' (当前查询) 和 'conversation_history' (历史)
-    (修改) 返回包含原始回复和耗时的字典
+    (修改) 调用 DeepSeek-R1 API 函数 - 流式。
+    (修改) 返回 *原始* 文本块 (包含 <thought>) 的生成器。
     """
 
     if log_system is None:
         logger.error("Log system 未初始化，返回错误。")
-        return {"raw_reply": "错误：日志分析系统未成功初始化。", "duration": 0.0}
+        yield "错误：日志分析系统未成功初始化。"  # (修改) yield 错误
+        return
 
     start_time = time.time()  # 计时开始
 
-    # (修改) 使用全局的 log_system 实例
-    # (修改) 调用更新后的 query 方法，该方法接受 history
-    print("conversation_history\n", conversation_history)
-    result = log_system.query(prompt, history=conversation_history)
+    # (修改) 迭代 log_system.query
+    try:
+        for chunk in log_system.query(prompt, history=conversation_history):
+            yield chunk  # (修改) yield 原始块
+    except Exception as e:
+        logger.error(f"deepseek_r1_api_call 流式处理失败: {e}")
+        yield f"API 调用失败: {e}"
 
-    time.sleep(0.5)  # 保留原始延迟
-
-    end_time = time.time()  # 计时结束
+    # (修改) 流结束后计算耗时
+    end_time = time.time()
     elapsed_time = round(end_time - start_time, 2)
 
-    return {"raw_reply": result["response"], "duration": elapsed_time}
+    # (新增) 在流的末尾发送一个特殊的 JSON 块，包含元数据
+    # 我们需要一种方式告诉调用者 (api.py) 流结束了并且耗时多少
+    metadata = {"type": "metadata", "duration": elapsed_time}
+    # (修改) 使用特殊分隔符
+    yield f"[METADATA_CHUNK]:{json.dumps(metadata)}\n"
 
 
 def create_api_key(username: str) -> str:
@@ -128,16 +130,7 @@ def check_rate_limit(key_str: str) -> bool:
                 return False
 
 
-# def get_or_create_session(session_id: str, user: APIKey) -> ConversationSession:
-# """获取或创建会话，关联当前用户（通过API Key）"""
-# session, created = ConversationSession.objects.get_or_create(
-# session_id=session_id,
-# user=user,  # 绑定用户
-# defaults={'context': ''}
-# )
-# return session
-
-
+# ... (get_or_create_session 不变)
 def get_or_create_session(session_id: str, user: APIKey) -> ConversationSession:
     """
     获取或创建用户的专属会话：
@@ -149,15 +142,13 @@ def get_or_create_session(session_id: str, user: APIKey) -> ConversationSession:
         user=user,  # 匹配当前用户（关键！避免跨用户会话冲突）
         defaults={"context": ""},
     )
-    # 调试日志：确认是否创建新会话（created=True 表示新会话）
-    # import logging
-    # logger = logging.getLogger(__name__)
     logger.info(
         f"会话 {session_id}（用户：{user.user}）{'创建新会话' if created else '加载旧会话'}"
     )
     return session
 
 
+# (注意：流式 API 不再使用缓存)
 def get_cached_reply(prompt: str, session_id: str, user: APIKey) -> str | None:
     """缓存键包含 session_id 和 user，避免跨会话冲突"""
     cache_key = f"reply:{user.user}:{session_id}:{hash(prompt)}"
