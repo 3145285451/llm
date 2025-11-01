@@ -1,0 +1,13 @@
+# filepath: /root/llm/.gitignore
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Django
+*.log
+db.sqlite3
+/media/
+
+django_backend/data/vector_stores/
