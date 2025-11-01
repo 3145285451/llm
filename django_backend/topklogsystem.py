@@ -123,7 +123,17 @@ class TopKLogSystem:
         prompt_messages = self._build_prompt(query, context, history)
         try:
             response_message = self.llm.invoke(prompt_messages)
-            return response_message
+
+            # (*** 关键修复 ***)
+            # 移除模型可能意外泄露的 <thought> 标签
+            # 这是一个双重保险，以防模型没有完全遵循指示
+            import re
+
+            clean_response = re.sub(
+                r"<thought>.*?</thought>\s*", "", response_message, flags=re.DOTALL
+            )
+            return clean_response.strip()
+
         except Exception as e:
             logger.error(f"LLM调用失败: {e}")
             return f"生成响应时出错: {str(e)}"
@@ -131,41 +141,76 @@ class TopKLogSystem:
     def _build_prompt(
         self, query: str, context: Dict, history: List[Dict] = None
     ) -> List:
+
+        # 1. (*** 优化 ***) System 角色：从 "SRE专家" 变为 "智能SRE路由"
+        # 保持不变。这使得模型在处理常规对话时，不会被SRE身份束缚。
         system_message = SystemMessagePromptTemplate.from_template(
-            "你是一个智能日志分析助手。"
-            "你的回答应该清晰、专业，并使用 Markdown 格式进行排版（例如使用列表、代码块、粗体、表格等）以提高可读性。"
+            """
+            你是一个多任务SRE助手。你的首要任务是 **[判断意图]**，然后根据意图选择正确的 **[响应模式]**。
+
+            你有两种响应模式：
+            1.  **[SRE分析模式]**: 当用户的问题与故障排查、日志分析、系统错误相关时使用。
+            2.  **[常规对话模式]**: 当用户进行常规闲聊 (如 "你好")、历史回顾 (如 "我刚才问了什么") 或提出与日志无关的问题 (如 "介绍一下天津大学") 时使用。
+
+            你的回答必须遵循以下质量要求：
+            1.  **专业严谨**：在 [SRE分析模式] 下，你的分析必须基于上下文（日志或历史），严禁凭空猜测。
+            2.  **清晰可读**：使用 Markdown 格式（如列表、代码块、粗体）来组织你的回答。
+            
+            **[重要]** 你的最终回答**绝不能**包含 `<thought>...</thought>` 标签内的任何内容。只输出最终的分析报告或回复。
+            """
         )
 
-        log_context = "## 相关历史日志参考:\n"
+        # 2. (*** 优化 ***) 准备日志上下文
+        # 保持不变。
+        log_context_str = "## [可用工具 (SRE模式专用)] 相关日志参考:\n"
         if not context:
-            log_context += "（未检索到相关历史日志）\n"
+            log_context_str += "（未检索到相关历史日志，仅在SRE模式下报告此信息）\n"
         else:
             for i, log in enumerate(context, 1):
-                log_context += f"日志 {i} : {log['content']}\n"
+                log_context_str += f"日志 {i} : {log['content']}\n"
 
-        # (*** 修复点 ***)
-        # 修改 HumanMessagePromptTemplate，赋予 LLM 路由能力
+        # 3. (*** 优化 ***) 改变 User 模板的结构
+        # (关键) 注入 SRE 模式的“深度思考” (Chain-of-Thought) 框架
         user_message_template = HumanMessagePromptTemplate.from_template(
             """
+            ## [可用工具 (SRE模式专用)]
             {log_context}
+            
             ---
-            ## 当前需要分析的问题:
+            ## [任务] 当前用户问题:
             {query}
-
             ---
-            ## 你的任务:
-            请仔细阅读“当前需要分析的问题”和完整的“对话历史”（在 `chat_history` 中）。
 
-            1.  **优先判断意图**：
-                * 如果“当前需要分析的问题”是关于**对话历史**的提问（例如：“我之前问了什么”、“总结一下”、“你刚才说了什么”），
-                    请你**必须优先并只使用 `chat_history`** 来回答，**忽略**“相关历史日志参考”。
-                * 如果“当前需要分析的问题”是一个**新的日志分析请求**（例如：“数据库连接失败”、“查询超时”），
-                    请你**优先使用“相关历史日志参考”** 来提供一个详细的分析报告。
+            ## [执行指令]
+            请严格按照以下步骤在 <thought> 块中进行内部思考，然后生成最终答复。
 
-            2.  **生成回答**：
-                * 根据你的判断，生成一个直接、清晰的回答。
-                * 如果问题是关于历史的，请直接从历史中总结答案。
-                * 如果问题是关于日志的，请按分析报告的格式回答。
+            <thought>
+            **步骤 1: 意图分析 (Intent Analysis)**
+            * 用户当前问题是："{query}"
+            * 结合聊天历史，分析用户的意图。
+            * 意图判断：(填写 [SRE分析模式] 或 [常规对话模式])
+
+            **步骤 2: 响应策略 (Response Strategy)**
+            * **如果 (If) 意图是 [常规对话模式]**:
+                * 我将生成一个友好、对应的回复，忽略 [可用工具] 中的日志。
+            * **如果 (If) 意图是 [SRE分析模式]**:
+                * 我必须使用下面的 [SRE分析框架] 来分析 [可用工具] 中的日志，并结合用户问题进行回答。
+
+            **步骤 3: SRE分析框架 (仅SRE模式执行)**
+            * **a. 问题现象 (Symptom):**
+                * (总结用户 {query} 中描述的核心问题。)
+            * **b. 日志关联 (Log Correlation):**
+                * (审查 [可用工具] 中的日志。哪些日志条目与 [Symptom] 相关？如果日志不相关或缺失，在此处注明。)
+            * **c. 根本原因 (Root Cause Hypothesis):**
+                * (基于 [Log Correlation] 和 {query}，提出1-2个最可能的根本原因。如果信息不足，则指出需要哪些额外信息。)
+            * **d. 建议方案 (Actionable Steps):**
+                * (提出具体的解决步骤或进一步的排查指令。)
+
+            **步骤 4: 草拟最终回复 (Draft Final Response)**
+            * (基于 [步骤2] 或 [步骤3] 的分析，在此处草拟给用户的最终回复。确保使用 Markdown 格式，并且不包含任何 <thought> 标签。)
+            </thought>
+
+            (在此处输出你在 [步骤 4] 中草拟的、面向用户的最终回复)
             """
         )
 
@@ -186,11 +231,13 @@ class TopKLogSystem:
                     formatted_history.append(AIMessage(content=msg["content"]))
 
         return prompt_template.format_prompt(
-            chat_history=formatted_history, log_context=log_context, query=query
+            chat_history=formatted_history,
+            log_context=log_context_str,  # (修改) 传递格式化后的字符串
+            query=query,
         ).to_messages()
 
     def query(self, query: str, history: List[Dict] = None) -> Dict:
-        # RAG (检索) 仍然总是运行，但这没关系
+        # RAG (检索) 仍然总是运行
         log_results = self.retrieve_logs(query)
 
         # LLM (生成) 会根据我们新的 Prompt 来决定是否使用 log_results
@@ -207,14 +254,34 @@ if __name__ == "__main__":
     query1 = "我遇到了数据库问题"
     result1 = system.query(query1)
     print("查询1:", query1)
-    print("响应1:", result1["response"])
+    print("响应1:\n", result1["response"])
 
     history_example = [
         {"role": "user", "content": query1},
         {"role": "assistant", "content": result1["response"]},
     ]
 
-    query2 = "是连接池耗尽的问题，如何解决？"
+    # (*** 测试意图区分 B ***)
+    query2 = "我刚才问了什么？"
     result2 = system.query(query2, history=history_example)
-    print("\n查询2 (带历史):", query2)
-    print("响应2:", result2["response"])
+    print("\n查询2 (测试历史对话):", query2)
+    # 预期：LLM 应该回答 "我遇到了数据库问题" (模式B)
+    print("响应2:\n", result2["response"])
+
+    # (*** 测试意图区分 A ***)
+    query3 = "是连接池耗尽的问题，如何解决？"
+    history_example.append({"role": "user", "content": query2})
+    history_example.append({"role": "assistant", "content": result2["response"]})
+    result3 = system.query(query3, history=history_example)
+    print("\n查询3 (测试日志分析):", query3)
+    # 预期：LLM 应该使用 RAG 检索并按 SRE 框架分析 (模式A)
+    print("响应3:\n", result3["response"])
+
+    # (*** 测试意图区分 C ***)
+    query4 = "你好"
+    history_example.append({"role": "user", "content": query3})
+    history_example.append({"role": "assistant", "content": result3["response"]})
+    result4 = system.query(query4, history=history_example)
+    print("\n查询4 (测试常规对话):", query4)
+    # 预期：LLM 应该友好回答，而不是分析日志 (模式C)
+    print("响应4:\n", result4["response"])
