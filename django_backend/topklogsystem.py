@@ -120,9 +120,7 @@ class TopKLogSystem:
             logger.error(f"日志检索失败: {e}")
             return []
 
-    def generate_response(
-        self, query: str, context: Dict, history: List[Dict] = None
-    ):
+    def generate_response(self, query: str, context: Dict, history: List[Dict] = None):
         prompt_messages = self._build_prompt(query, context, history)
         try:
             for chunk in self.llm.stream(prompt_messages):
@@ -136,7 +134,7 @@ class TopKLogSystem:
         self, query: str, context: Dict, history: List[Dict] = None
     ) -> List:
 
-        # 1. (*** 修复 ***) 强化 System 角色，使其对输出格式的指令更严格
+        # 1. (*** 改进 ***) 强化 System 角色，增加对历史的感知要求
         system_message = SystemMessagePromptTemplate.from_template(
             """
             你是一个多任务SRE助手。你的首要任务是 **[判断意图]**，然后根据意图选择正确的 **[响应模式]**。
@@ -146,18 +144,18 @@ class TopKLogSystem:
             2.  **[常规对话模式]**: 当用户进行常规闲聊 (如 "你好")、历史回顾 (如 "我刚才问了什么") 或提出与日志无关的问题 (如 "介绍一下天津大学") 时使用。
 
             你的回答必须遵循以下质量要求：
-            1.  **专业严谨**：在 [SRE分析模式] 下，你的分析必须基于上下文（日志或历史），严禁凭空猜测。
+            1.  **专业严谨**：在 [SRE分析模式] 下，你的分析必须基于上下文（检索到的日志 和/或 历史对话），严禁凭空猜测。
             2.  **清晰可读**：使用 Markdown 格式（如列表、代码块、粗体）来组织你的回答。
-            
+            3.  **(新增) 上下文感知**：你必须能够 **自主判断** 是否需要结合 **历史对话** 来理解用户的真实意图或SRE问题。
+
             **[!!! 绝对指令：输出格式 !!!]**
             1.  你 **必须** 且 **只能** 使用 `<think>...</think>` 标签来包裹你的所有内部思考步骤 (包括意图分析、SRE分析框架等)。
             2.  在 `<think>...</think>` 标签之外，你 **必须** 且 **只能** 输出 **最终的、直接面向用户** 的回复。
             3.  最终回复中 **严禁** 包含 "步骤 1"、"步骤 2"、"意图分析"、"根本原因"、"最终回复草稿" 等任何思考过程的字样。
-            4.  用户 **永远** 不应该看到 `<think>` 和 `</think>` 标签，也不应该看到你的思考步骤。
             """
         )
 
-        # 2. 准备日志上下文
+        # 2. 准备日志上下文 (不变)
         log_context_str = "## [可用工具 (SRE模式专用)] 相关日志参考:\n"
         if not context:
             log_context_str += "（未检索到相关历史日志，仅在SRE模式下报告此信息）\n"
@@ -165,7 +163,7 @@ class TopKLogSystem:
             for i, log in enumerate(context, 1):
                 log_context_str += f"日志 {i} : {log['content']}\n"
 
-        # 3. (*** 修复 ***) 强化 User 模板的结构，明确引导模型输出位置
+        # 3. (*** 核心改进 ***) 修改 User 模板，强制 LLM 分析历史对话
         user_message_template = HumanMessagePromptTemplate.from_template(
             """
             ## [可用工具 (SRE模式专用)]
@@ -181,33 +179,37 @@ class TopKLogSystem:
             2.  在 <think> 块 **之外**，生成最终的、面向用户的回复。
 
             <think>
+            
             **步骤 1: 意图分析 (Intent Analysis)**
             * 用户当前问题是："{query}"
-            * 意图判断：(填写 [SRE分析模式] 或 [常规对话模式])
+            * **(新增) 历史对话上下文分析：**(简要评估历史对话。例如：用户是在追问SRE问题、转换话题、提供新信息，还是在进行常规对话？)
+            * **(修改) 意图判断：**(基于 **当前问题** 和 **历史上下文**，填写 [SRE分析模式] 或 [常规对话模式])
 
             **步骤 2: 响应策略 (Response Strategy)**
-            * **如果 (If) 意图是 [常规对话模式]**:
-                * 我将生成一个友好、对应的回复，忽略 [可用工具] 中的日志。
-            * **如果 (If) 意图是 [SRE分析模式]**:
-                * 我必须使用下面的 [SRE分析框架] 来分析 [可用工具] 中的日志，并结合用户问题进行回答。
+            * **(修改) 如果 (If) 意图是 [常规对话模式]**:
+                * 我将生成一个友好、对应的回复。如果问题与历史相关 (如 "我刚才问了什么")，我将 **查阅历史对话** 来回答。如果问题是新闲聊，我将忽略 [可用工具] 中的日志。
+            * **(修改) 如果 (If) 意图是 [SRE分析模式]**:
+                * 我必须使用下面的 [SRE分析框架] 来分析 [可用工具] 中的日志，并结合 **历史对话** 和 **用户问题** 进行回答。
 
             **步骤 3: SRE分析框架 (仅SRE模式执行)**
             * **a. 问题现象 (Symptom):**
-                * (总结用户 {query} 中描述的核心问题。)
+                * **(修改)** (结合 {query} **以及历史对话**，总结用户描述的完整问题现象。例如，用户可能分多条消息描述了一个问题。)
             * **b. 日志关联 (Log Correlation):**
-                * (审查 [可用工具] 中的日志。哪些日志条目与 [Symptom] 相关？如果日志不相关或缺失，在此处注明。)
+                * (审查 [可用工具] 中的日志。哪些日志条目与 [a. 问题现象] 中总结的内容相关？如果日志不相关或缺失，在此处注明。)
             * **c. 根本原因 (Root Cause Hypothesis):**
-                * (基于 [Log Correlation] 和 {query}，提出1-2个最可能的根本原因。如果信息不足，则指出需要哪些额外信息。)
+                * **(修改)** (基于 [b. 日志关联]、{query} **和历史对话**，提出1-2个最可能的根本原因。如果信息不足，则指出需要哪些额外信息。)
             * **d. 建议方案 (Actionable Steps):**
                 * (提出具体的解决步骤或进一步的排查指令。)
 
             **步骤 4: 回复构思 (Response Rationale)**
             * (基于 [步骤2] 或 [步骤3] 的分析，在此处 **构思** 给用户的最终回复，使用详细且严谨的专家风格。这 **不是** 最终草稿。)
+            
             </think>
             
             """
         )
 
+        # 4. 格式化输入 (不变)
         prompt_template = ChatPromptTemplate.from_messages(
             [
                 system_message,
@@ -225,20 +227,14 @@ class TopKLogSystem:
                     # (*** 关键修复 ***)
                     # 确保传入历史的 AI 回复也是清理过的，避免污染上下文
                     clean_content = re.sub(
-                        r"<\ctrl3347>.*?<\ctrl3348>\s*",  # 假设这是你的 think 标签，如果不是，请替换为 <think>
+                        r"<think>.*?</think>\s*",
                         "",
                         msg["content"],
                         flags=re.DOTALL,
                     )
-                    # 替换为正确的 think 标签
-                    clean_content = re.sub(
-                        r"<think>.*?</think>\s*",
-                        "",
-                        clean_content,
-                        flags=re.DOTALL,
-                    )
                     formatted_history.append(AIMessage(content=clean_content.strip()))
                 else:
+                    # 兼容其他可能的角色，尽管这里可能不需要
                     formatted_history.append(AIMessage(content=msg["content"]))
 
         return prompt_template.format_prompt(
@@ -247,9 +243,7 @@ class TopKLogSystem:
             query=query,
         ).to_messages()
 
-    def query(
-        self, query: str, history: List[Dict] = None
-    ):
+    def query(self, query: str, history: List[Dict] = None):
         log_results = self.retrieve_logs(query)
         for chunk in self.generate_response(query, log_results, history):
             yield chunk

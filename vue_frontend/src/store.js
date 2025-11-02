@@ -102,6 +102,22 @@ export const useStore = defineStore('main', {
       }
     },
 
+    // (新增) 移除最后一条消息 (用于重新生成)
+    removeLastMessage(sessionId) {
+      if (!this.messages[sessionId] || this.messages[sessionId].length === 0) {
+        return;
+      }
+      
+      const lastMessage = this.messages[sessionId][this.messages[sessionId].length - 1];
+      
+      // 确保最后一条是 AI 消息
+      if (!lastMessage.isUser) {
+        this.messages[sessionId].pop();
+      } else {
+        console.warn('Attempted to remove last message, but it was a user message.');
+      }
+    },
+
 
     // (修改) 从历史记录加载消息 (包装成新结构)
     loadHistory(sessionId, history) {

@@ -35,13 +35,15 @@
         </div>
         
         <ChatMessage
-          v-for="msg in messages"
+          v-for="(msg, index) in messages"
           :key="msg.id"
           :is-user="msg.isUser"
           :content="msg.content"
           :think-process="msg.think_process" 
           :duration="msg.duration"
           :timestamp="msg.timestamp"
+          :allow-regenerate="!msg.isUser && index === messages.length - 1 && !loading"
+          @regenerate="handleRegenerate"
         />
         
         <!-- (修改) loading-indicator 的 v-if 条件 -->
@@ -79,6 +81,7 @@ import ChatInput from '../components/ChatInput.vue';
 const store = useStore();
 const router = useRouter();
 const messagesContainerRef = ref(null); // (新增) 消息容器引用
+const lastUserMessage = ref(''); // (新增) 存储最后的用户输入
 
 // 计算属性
 const sessions = computed(() => store.sessions);
@@ -102,6 +105,12 @@ const loadHistory = async (sessionId) => {
     store.setLoading(true);
     const response = await api.getHistory(sessionId);
     store.loadHistory(sessionId, response.data.history);
+
+    // (新增) 加载历史后，找到最后的用户消息
+    const currentMessages = store.messages[sessionId] || [];
+    const lastUserMsg = [...currentMessages].reverse().find(m => m.isUser);
+    lastUserMessage.value = lastUserMsg ? lastUserMsg.content : '';
+
     await scrollToBottom(); // (新增) 加载后滚动
   } catch (err) {
     store.setError(err.response?.data?.error || '加载历史记录失败');
@@ -147,6 +156,9 @@ const handleCreateSession = (sessionId) => {
 
 // (修改) 处理发送消息 (流式)
 const handleSendMessage = async (content) => {
+  // (新增) 存储最后的用户输入
+  lastUserMessage.value = content;
+
   const sessionId = currentSession.value;
 
   // 1. 添加用户消息
@@ -193,6 +205,29 @@ const handleSendMessage = async (content) => {
       scrollToBottom(); // (新增) 滚动
     }
   );
+};
+
+// (新增) 处理重新生成
+const handleRegenerate = async () => {
+  if (loading.value || !lastUserMessage.value) {
+    console.warn('Cannot regenerate while loading or no last user message.');
+    return;
+  }
+  const sessionId = currentSession.value;
+  
+  // 1. 确保最后一条是 AI 消息
+  const currentMessages = messages.value;
+  if (currentMessages.length === 0 || currentMessages[currentMessages.length - 1].isUser) {
+      console.warn('Last message is not an AI message.');
+      return;
+  }
+
+  // 2. 删除最后一条 AI 消息
+  store.removeLastMessage(sessionId);
+  await scrollToBottom(); // 滚动，隐藏刚删除的消息
+  
+  // 3. 重新发送
+  await handleSendMessage(lastUserMessage.value);
 };
 
 // 处理清空历史

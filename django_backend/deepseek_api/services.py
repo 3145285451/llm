@@ -25,39 +25,31 @@ except Exception as e:
 # ... (rate_lock)
 
 
-# (修改) deepseek_r1_api_call 改为流式生成器
 def deepseek_r1_api_call(
     prompt: str, conversation_history: List[Dict] = None
 ):  # -> Generator[str, None, None]
     """
     (修改) 调用 DeepSeek-R1 API 函数 - 流式。
-    (修改) 返回 *原始* 文本块 (包含 <think>) 的生成器。
+    (修改) 仅返回 *原始* 文本块 (包含 <think>) 的生成器。
     """
 
     if log_system is None:
         logger.error("Log system 未初始化，返回错误。")
-        yield "错误：日志分析系统未成功初始化。"  # (修改) yield 错误
+        yield "错误：日志分析系统未成功初始化。"
         return
 
-    start_time = time.time()  # 计时开始
+    # (修改) 移除 start_time 计时
 
-    # (修改) 迭代 log_system.query
     try:
+        # (修改) 简单地迭代 log_system.query
         for chunk in log_system.query(prompt, history=conversation_history):
             yield chunk  # (修改) yield 原始块
     except Exception as e:
         logger.error(f"deepseek_r1_api_call 流式处理失败: {e}")
         yield f"API 调用失败: {e}"
 
-    # (修改) 流结束后计算耗时
-    end_time = time.time()
-    elapsed_time = round(end_time - start_time, 2)
-
-    # (新增) 在流的末尾发送一个特殊的 JSON 块，包含元数据
-    # 我们需要一种方式告诉调用者 (api.py) 流结束了并且耗时多少
-    metadata = {"type": "metadata", "duration": elapsed_time}
-    # (修改) 使用特殊分隔符
-    yield f"[METADATA_CHUNK]:{json.dumps(metadata)}\n"
+    # (修改) 移除所有计时和 [METADATA_CHUNK] 逻辑
+    # 流在此处自然结束
 
 
 def create_api_key(username: str) -> str:

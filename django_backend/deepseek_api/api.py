@@ -62,7 +62,6 @@ def login(request, data: LoginIn):
     return {"api_key": key, "expiry": settings.TOKEN_EXPIRY_SECONDS}
 
 
-# (修改) chat 接口
 @router.post("/chat")  # (修改) 移除 response 定义
 def chat(request, data: ChatIn):
     # (修改) 使用 SSE 格式 (text/event-stream)
@@ -88,72 +87,86 @@ def chat(request, data: ChatIn):
 
     user = request.auth
     session = get_or_create_session(session_id, user)
+    # (*** 修复 ***) conversation_history 是从数据库获取的完整历史
     conversation_history = session.get_conversation_history()
+    print(conversation_history)
+    # (*** 核心修复：处理重新生成 ***)
+    history_for_llm = conversation_history
+    is_regeneration = False
+
+    if (len(conversation_history) >= 2 and
+        conversation_history[-1]["role"] == "assistant" and
+        conversation_history[-2]["role"] == "user" and
+        conversation_history[-2]["content"] == user_input):
+        
+        # 历史是 [..., (Q, A_old)]。用户输入是 Q。
+        # LLM 应该看到 [..., ] (不包括 Q 和 A_old)，然后接收 Q。
+        logger.info(f"检测到重新生成 (会话: {session_id})")
+        history_for_llm = conversation_history[:-2] # 移除 Q_last 和 A_last
+        is_regeneration = True
+    
+    elif (len(conversation_history) >= 1 and
+          conversation_history[-1]["role"] == "user" and
+          conversation_history[-1]["content"] == user_input):
+          
+        # 历史是 [..., Q_last]。用户输入是 Q_last。
+        # (AI 回复失败，数据库中只有 Q_last)
+        # LLM 应该看到 [..., ]，然后接收 Q_last。
+        logger.info(f"检测到对失败消息的重新生成 (会话: {session_id})")
+        history_for_llm = conversation_history[:-1] # 移除 Q_last
+        is_regeneration = True
+    # (*** 结束修复 ***)
+
 
     # (新增) 定义流式生成器 (后端解析)
     def stream_generator() -> Generator[str, None, None]:
         buffer = ""
         is_thinking = False
         full_clean_reply = ""  # 用于最后存入数据库
-        duration = 0.0
+        
+        start_time = time.time()  # 在开始迭代前计时
+        think_time_sent = False  # 确保元数据只发送一次
 
         try:
-            # (修改) 迭代 services.py 中的流
-            for raw_chunk in deepseek_r1_api_call(user_input, conversation_history):
-                print(raw_chunk)
-                # (新增) 检查 services.py 发来的特殊元数据块
-                if raw_chunk.startswith("[METADATA_CHUNK]:"):
-                    try:
-                        metadata_json = raw_chunk.split(":", 1)[1]
-                        metadata = json.loads(metadata_json)
-                        if metadata.get("type") == "metadata":
-                            duration = metadata.get("duration", 0.0)
-                            # (修改) 发送最终的元数据事件
-                            yield "data: " + json.dumps(
-                                {"type": "metadata", "duration": duration}
-                            ) + "\n\n"
-                    except Exception as e:
-                        logger.warning(f"解析元数据块失败: {e}")
-                    continue  # 停止迭代
-
+            # (修改) 迭代 services.py 中的流，传入截断后的 history_for_llm
+            for raw_chunk in deepseek_r1_api_call(user_input, history_for_llm):
+                
+                # (*** 核心修改 2 ***)
+                # ... (流式解析逻辑不变) ...
                 buffer += raw_chunk
 
-                # (*** 关键修复 ***)
-                # 循环处理缓冲区，直到缓冲区被清空或需要更多数据
                 while True:
                     if not is_thinking:
-                        # 1. 尝试查找 <think> 开始
                         start_index = buffer.find("<think>")
                         if start_index != -1:
-                            # 找到了
                             before = buffer[:start_index]
                             if before:
                                 yield "data: " + json.dumps(
                                     {"type": "content", "chunk": before}
                                 ) + "\n\n"
                                 full_clean_reply += before
-
                             buffer = buffer[start_index + len("<think>") :]
                             is_thinking = True
-                            # (修复) 继续循环，立即处理 <think> 后的内容
                             continue
                         else:
-                            # [!!! 修复 !!!]
-                            # 没找到 <think>，意味着整个缓冲区都是 content
-                            # yield 它，然后清空缓冲区，等待下一个 chunk
                             if buffer:
                                 yield "data: " + json.dumps(
                                     {"type": "content", "chunk": buffer}
                                 ) + "\n\n"
                                 full_clean_reply += buffer
                                 buffer = ""
-                            break  # 退出 while 循环，等待下一个 raw_chunk
-
+                            break
                     if is_thinking:
-                        # 2. 尝试查找 </think> 结束
                         end_index = buffer.find("</think>")
                         if end_index != -1:
-                            # 找到了
+                            if not think_time_sent:
+                                end_think_time = time.time()
+                                duration = round(end_think_time - start_time, 2)
+                                yield "data: " + json.dumps(
+                                    {"type": "metadata", "duration": duration}
+                                ) + "\n\n"
+                                think_time_sent = True
+                            
                             think_chunk = buffer[:end_index]
                             if think_chunk:
                                 yield "data: " + json.dumps(
@@ -162,24 +175,17 @@ def chat(request, data: ChatIn):
 
                             buffer = buffer[end_index + len("</think>") :]
                             is_thinking = False
-                            # (修复) 继续循环，立即处理 </think> 后的内容
                             continue
                         else:
-                            # 没找到结束标签，意味着整个缓冲区都是 think
                             if buffer:
                                 yield "data: " + json.dumps(
                                     {"type": "think", "chunk": buffer}
                                 ) + "\n\n"
                                 buffer = ""
-                            break  # 退出 while 循环，等待下一个 raw_chunk
-
-                    # (修复) 如果代码执行到这里，意味着在一次循环中
-                    # 既处理了 <ctrl3347> 又处理了 </think>，
-                    # 应该继续循环检查剩余的 buffer
+                            break
 
             # (循环结束) 处理剩余缓冲区
             if is_thinking and buffer:
-                # 不太可能发生，但作为保险
                 yield "data: " + json.dumps(
                     {"type": "think", "chunk": buffer}
                 ) + "\n\n"
@@ -192,9 +198,35 @@ def chat(request, data: ChatIn):
             # (新增) 流全部结束后，更新数据库
             try:
                 # (修复) 确保只保存清理后的回复
-                # (clean_llm_reply 再次调用以防万一，但 full_clean_reply 应该是对的)
-                final_save = clean_llm_reply(full_clean_reply)
-                session.update_context(user_input, final_save.strip())
+                final_save = clean_llm_reply(full_clean_reply).strip()
+                
+                # (*** 核心修复：防止重新生成时重复添加 ***)
+                if is_regeneration:
+                    # 如果是重新生成，我们必须 *重写* 数据库上下文
+                    # (假设 context 格式为 "\n用户：{q}\n回复：{a}\n")
+                    
+                    new_context_str = ""
+                    # 重新组合截断的历史
+                    for msg in history_for_llm: 
+                        if msg["role"] == "user":
+                            new_context_str += f"\n用户：{msg['content']}\n"
+                        elif msg["role"] == "assistant":
+                            new_context_str += f"\n回复：{msg['content']}\n"
+                    
+                    # 添加当前轮次的新回复
+                    new_context_str += f"\n用户：{user_input}\n"
+                    new_context_str += f"\n回复：{final_save}\n"
+                    
+                    # (假设 session.context 是可写的)
+                    session.context = new_context_str.strip()
+                    session.save()
+                    
+                else:
+                    # 正常追加 (调用 models.py 中的方法)
+                    session.update_context(user_input, final_save)
+                
+                # (*** 结束修复 ***)
+
                 logger.info(f"会话 {session_id} 已更新 (用户: {user.user})")
             except Exception as e:
                 logger.error(f"数据库上下文更新失败: {e}")
@@ -212,7 +244,6 @@ def chat(request, data: ChatIn):
     # (新增) 禁用 Nginx 缓冲
     response["X-Accel-Buffering"] = "no"
     return response
-
 
 @router.get("/history", response={200: HistoryOut})
 def history(request, session_id: str = "default_session"):
