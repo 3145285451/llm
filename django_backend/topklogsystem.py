@@ -148,7 +148,7 @@ class TopKLogSystem:
     @staticmethod
     def _process_yaml(file_path: str) -> List[Document]:
         documents = []
-        with open(file_path, "r", encoding="utf-8") as f]:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
             documents.append(Document(text=content))
         return documents
@@ -156,7 +156,7 @@ class TopKLogSystem:
     @staticmethod
     def _process_xml(file_path: str) -> List[Document]:
         documents = []
-        with open(file_path, "r", encoding="utf-8") as f]:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
             documents.append(Document(text=content))
         return documents
@@ -164,7 +164,7 @@ class TopKLogSystem:
     @staticmethod
     def _process_log(file_path: str) -> List[Document]:
         documents = []
-        with open(file_path, "r", encoding="utf-8") as f]:
+        with open(file_path, "r", encoding="utf-8") as f:
             for line in f:
                 documents.append(Document(text=line.strip()))
         return documents
@@ -191,7 +191,7 @@ class TopKLogSystem:
     @staticmethod
     def _process_text(file_path: str) -> List[Document]:
         documents = []
-        with open(file_path, "r", encoding="utf-8") as f]:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
             documents.append(Document(text=content))
         return documents
