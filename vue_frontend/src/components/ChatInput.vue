@@ -1,6 +1,7 @@
 <template>
   <div class="chat-input-container">
     <textarea
+      ref="textareaRef"
       v-model="message"
       class="chat-input"
       placeholder="输入消息..."
@@ -29,7 +30,7 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits } from 'vue';
+import { ref, defineProps, defineEmits, defineExpose, nextTick } from 'vue';
 
 const props = defineProps({
   loading: {
@@ -41,6 +42,27 @@ const props = defineProps({
 const emits = defineEmits(['send']);
 
 const message = ref('');
+const textareaRef = ref(null);
+
+// (新增) 暴露方法供父组件调用
+const setContent = (content) => {
+  message.value = content || '';
+};
+
+// (新增) 聚焦输入框
+const focus = () => {
+  // 使用 ref 获取 textarea 元素并聚焦
+  nextTick(() => {
+    if (textareaRef.value) {
+      textareaRef.value.focus();
+      // 将光标移到文本末尾
+      textareaRef.value.setSelectionRange(
+        textareaRef.value.value.length, 
+        textareaRef.value.value.length
+      );
+    }
+  });
+};
 
 const sendMessage = () => {
   const content = message.value.trim();
@@ -57,6 +79,13 @@ const clearInput = () => {
 const addNewline = () => {
   message.value += '\n';
 };
+
+// (新增) 暴露方法
+defineExpose({
+  setContent,
+  focus,
+  clearInput
+});
 </script>
 
 <style scoped>

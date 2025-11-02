@@ -42,8 +42,10 @@
           :think-process="msg.think_process" 
           :duration="msg.duration"
           :timestamp="msg.timestamp"
+          :message-id="msg.id"
           :allow-regenerate="!msg.isUser && index === messages.length - 1 && !loading"
           @regenerate="handleRegenerate"
+          @edit="handleEditMessage"
         />
         
         <!-- (修改) loading-indicator 的 v-if 条件 -->
@@ -62,6 +64,7 @@
       </div>
       
       <ChatInput
+        ref="chatInputRef"
         :loading="loading"
         @send="handleSendMessage"
       />
@@ -81,6 +84,7 @@ import ChatInput from '../components/ChatInput.vue';
 const store = useStore();
 const router = useRouter();
 const messagesContainerRef = ref(null); // (新增) 消息容器引用
+const chatInputRef = ref(null); // (新增) 聊天输入框引用
 const lastUserMessage = ref(''); // (新增) 存储最后的用户输入
 
 // 计算属性
@@ -89,6 +93,8 @@ const currentSession = computed(() => store.currentSession);
 const messages = computed(() => store.messages[currentSession.value] || []);
 const loading = computed(() => store.loading);
 const error = computed(() => store.error);
+const isEditing = computed(() => store.isEditing);
+const editingMessageId = computed(() => store.editingMessageId);
 
 // (新增) 滚动到底部
 const scrollToBottom = async () => {
@@ -156,10 +162,22 @@ const handleCreateSession = (sessionId) => {
 
 // (修改) 处理发送消息 (流式)
 const handleSendMessage = async (content) => {
+  const sessionId = currentSession.value;
+
+  // (新增) 步骤二：检查是否为编辑模式
+  if (isEditing.value && editingMessageId.value) {
+    // 步骤三：编辑模式的发送逻辑
+    await handleEditSend(sessionId, content);
+  } else {
+    // 正常模式的发送逻辑
+    await handleNormalSend(sessionId, content);
+  }
+};
+
+// (新增) 正常发送模式
+const handleNormalSend = async (sessionId, content) => {
   // (新增) 存储最后的用户输入
   lastUserMessage.value = content;
-
-  const sessionId = currentSession.value;
 
   // 1. 添加用户消息
   store.addMessage(sessionId, true, { content: content });
@@ -207,6 +225,112 @@ const handleSendMessage = async (content) => {
   );
 };
 
+// (新增) 编辑模式的发送逻辑（步骤三和四）
+const handleEditSend = async (sessionId, editedContent) => {
+  const messageId = editingMessageId.value;
+  const chatHistory = messages.value;
+
+  // (新增) 存储最后的用户输入（用于重新生成功能）
+  lastUserMessage.value = editedContent;
+
+  // 步骤三：发送逻辑
+  
+  // 1. 找到编辑消息的索引
+  const editIndex = chatHistory.findIndex(msg => msg.id === messageId);
+  
+  if (editIndex === -1) {
+    store.setError('找不到要编辑的消息');
+    store.clearEditing();
+    return;
+  }
+
+  // 2. 创建截断后的上下文数组（只包含编辑消息之前的所有对话）
+  // 格式化为后端需要的格式：{ role: 'user'/'assistant', content: '...' }
+  const context = chatHistory.slice(0, editIndex).map(msg => ({
+    role: msg.isUser ? 'user' : 'assistant',
+    content: msg.content
+  }));
+
+  // 3. 替换编辑消息的内容（步骤四：更新聊天记录的第一部分）
+  chatHistory[editIndex].content = editedContent;
+
+  // 4. 确保下一条消息是空的 AI 消息（用于接收流式响应）
+  let aiMessageIndex = editIndex + 1;
+  
+  if (aiMessageIndex >= chatHistory.length) {
+    // 如果不存在下一条消息，创建新的 AI 消息
+    store.addMessage(sessionId, false, { 
+      content: '', 
+      think_process: '' 
+    });
+    aiMessageIndex = editIndex + 1;
+  } else if (chatHistory[aiMessageIndex].isUser) {
+    // 如果下一条是用户消息（不应该发生），插入 AI 消息
+    chatHistory.splice(aiMessageIndex, 0, {
+      id: Date.now() + Math.random(),
+      isUser: false,
+      content: '',
+      think_process: '',
+      duration: null,
+      timestamp: new Date()
+    });
+    aiMessageIndex = editIndex + 1;
+  } else {
+    // 是 AI 消息，清空其内容用于接收新的流式响应
+    chatHistory[aiMessageIndex].content = '';
+    chatHistory[aiMessageIndex].think_process = '';
+    chatHistory[aiMessageIndex].duration = null;
+  }
+
+  // 5. 删除从 editIndex + 2 开始的所有后续消息（步骤四：删除旧分支）
+  if (editIndex + 2 < chatHistory.length) {
+    chatHistory.splice(editIndex + 2);
+  }
+
+  await scrollToBottom();
+  store.setLoading(true);
+  store.setError(null);
+
+  // 6. 调用流式 API，传入截断后的上下文
+  await api.streamChat(
+    sessionId,
+    editedContent,
+    // (onData) 接收 SSE 数据块 (JSON 对象) - 更新特定索引的 AI 消息（步骤四：接收逻辑）
+    (data) => {
+      if (data.type === 'content') {
+        store.updateMessageAtIndex(sessionId, aiMessageIndex, { content_chunk: data.chunk });
+      } else if (data.type === 'think') {
+        store.updateMessageAtIndex(sessionId, aiMessageIndex, { think_chunk: data.chunk });
+      } else if (data.type === 'metadata') {
+        store.updateMessageAtIndex(sessionId, aiMessageIndex, { duration: data.duration });
+      } else if (data.type === 'error') {
+        store.setError(data.chunk || '流式响应出错');
+      }
+      scrollToBottom(); // (新增) 流式滚动
+    },
+    // (onError)
+    (errorMessage) => {
+      store.setLoading(false);
+      store.setError(errorMessage);
+      store.clearEditing(); // (新增) 清除编辑状态
+      scrollToBottom();
+    },
+    // (onComplete) - 步骤四：接收逻辑的清理
+    () => {
+      store.setLoading(false);
+      // (新增) 清理编辑状态
+      store.clearEditing();
+      // (新增) 清空输入框
+      if (chatInputRef.value) {
+        chatInputRef.value.clearInput();
+      }
+      scrollToBottom();
+    },
+    // (新增) 传入上下文
+    context
+  );
+};
+
 // (新增) 处理重新生成
 const handleRegenerate = async () => {
   if (loading.value || !lastUserMessage.value) {
@@ -228,6 +352,27 @@ const handleRegenerate = async () => {
   
   // 3. 重新发送
   await handleSendMessage(lastUserMessage.value);
+};
+
+// (新增) 处理编辑消息
+const handleEditMessage = (editData) => {
+  const { messageId, content } = editData;
+  
+  // 1. 设置编辑状态
+  store.setEditing(messageId);
+  
+  // 2. 将输入框内容替换为该消息的文本
+  if (chatInputRef.value) {
+    chatInputRef.value.setContent(content);
+  }
+  
+  // 3. 滚动到底部，聚焦输入框
+  scrollToBottom();
+  nextTick(() => {
+    if (chatInputRef.value) {
+      chatInputRef.value.focus();
+    }
+  });
 };
 
 // 处理清空历史

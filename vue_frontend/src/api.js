@@ -34,20 +34,27 @@ axiosApi.interceptors.response.use(
 
 
 // (新增) 流式聊天 API
-async function streamChat(sessionId, userInput, onData, onError, onComplete) {
+async function streamChat(sessionId, userInput, onData, onError, onComplete, context = null) {
   const token = localStorage.getItem('apiKey');
 
   try {
+    const body = {
+      session_id: sessionId,
+      user_input: userInput,
+    };
+    
+    // (新增) 如果提供了 context，添加到请求体
+    if (context && Array.isArray(context) && context.length > 0) {
+      body.context = context;
+    }
+
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        session_id: sessionId,
-        user_input: userInput,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {

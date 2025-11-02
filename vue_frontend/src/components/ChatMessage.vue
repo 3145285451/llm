@@ -52,16 +52,79 @@
         </div>
         <div 
           v-if="showthinkProcess" 
+          ref="thinkContentRef"
           class="think-content" 
           v-html="renderedthinkProcess"
         >
         </div>
       </div>
 
-      <div v-if="isUser" class="message-text">
-        {{ content }}
+      <div v-if="isUser" class="message-text user-message-text-wrapper">
+        <!-- (新增) 用户消息操作按钮 - 定位到气泡左侧外部 -->
+        <div v-if="content" class="user-action-buttons">
+          <!-- 复制按钮 -->
+          <button
+            class="user-copy-btn"
+            :title="userCopied ? '已复制' : '复制我的提问'"
+            @click="copyUserContent"
+            :disabled="userCopied"
+          >
+            <check-icon v-if="userCopied" class="icon-small success" />
+            <copy-icon v-else class="icon-small" />
+          </button>
+          <!-- (新增) 编辑按钮 -->
+          <button
+            class="user-edit-btn"
+            title="编辑并重新生成"
+            @click="handleEdit"
+          >
+            <pencil-icon class="icon-small" />
+          </button>
+        </div>
+        <div class="user-message-content">{{ content }}</div>
       </div>
-      <div v-else class="message-text" v-html="renderedMarkdown">
+      <div v-else ref="messageTextRef" class="message-text" v-html="renderedMarkdown">
+      </div>
+
+      <!-- (新增) HTML 预览模态框 -->
+      <div v-if="showHtmlPreview" class="html-preview-modal-overlay" @click.self="showHtmlPreview = false">
+        <div class="html-preview-modal">
+          <div class="html-preview-header">
+            <h3>HTML 预览</h3>
+            <button class="html-preview-close-btn" @click="showHtmlPreview = false" title="关闭">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="html-preview-content">
+            <iframe 
+              :srcdoc="htmlPreviewContent" 
+              frameborder="0"
+              sandbox="allow-scripts allow-same-origin allow-forms"
+              class="html-preview-iframe"
+            ></iframe>
+          </div>
+        </div>
+      </div>
+
+      <!-- (新增) JavaScript 运行结果模态框 -->
+      <div v-if="showJsResult" class="js-result-modal-overlay" @click.self="showJsResult = false">
+        <div class="js-result-modal">
+          <div class="js-result-header">
+            <h3>JavaScript 运行结果</h3>
+            <button class="js-result-close-btn" @click="showJsResult = false" title="关闭">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="js-result-content">
+            <pre class="js-result-pre">{{ jsResultContent }}</pre>
+          </div>
+        </div>
       </div>
 
       <div class="message-time">
@@ -118,13 +181,15 @@
 </template>
 
 <script setup>
-import { computed, defineProps, ref, watch, onUnmounted, defineEmits } from 'vue';
+import { computed, defineProps, ref, watch, onUnmounted, defineEmits, onMounted, nextTick } from 'vue';
 import { marked } from 'marked';
 // (修改) 导入新图标
 import { 
   BrainIcon, ChevronDownIcon, ChevronUpIcon, 
   CopyIcon, CheckIcon, RefreshIcon, 
-  ThumbUpIcon, ThumbDownIcon 
+  ThumbUpIcon, ThumbDownIcon,
+  PlayerPlayIcon,
+  PencilIcon
 } from 'vue-tabler-icons';
 
 const props = defineProps({
@@ -151,10 +216,15 @@ const props = defineProps({
   allowRegenerate: {
     type: Boolean,
     default: false
+  },
+  // (新增) 消息ID
+  messageId: {
+    type: [String, Number],
+    default: null
   }
 });
 
-const emits = defineEmits(['regenerate']);
+const emits = defineEmits(['regenerate', 'edit']);
 
 const showthinkProcess = ref(false);
 
@@ -238,6 +308,31 @@ const copyContent = async () => {
   }
 };
 
+// (新增) 用户消息复制状态
+const userCopied = ref(false);
+const copyUserContent = async () => {
+  if (!props.content || userCopied.value) return;
+  try {
+    await navigator.clipboard.writeText(props.content);
+    userCopied.value = true;
+    setTimeout(() => {
+      userCopied.value = false;
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy user message: ', err);
+  }
+};
+
+// (新增) 处理编辑按钮点击
+const handleEdit = () => {
+  if (!props.content || !props.messageId) return;
+  // 发出编辑事件，传递消息ID和内容
+  emits('edit', {
+    messageId: props.messageId,
+    content: props.content
+  });
+};
+
 
 const renderedMarkdown = computed(() => {
   if (props.isUser) {
@@ -266,6 +361,315 @@ const renderedthinkProcess = computed(() => {
 const formatTime = (date) => {
   return new Date(date).toLocaleTimeString();
 };
+
+// (新增) 代码块复制功能
+const messageTextRef = ref(null);
+const thinkContentRef = ref(null);
+const codeBlockCopiedStates = ref(new Map()); // 存储每个代码块的复制状态
+
+// (新增) HTML 预览模态框状态
+const showHtmlPreview = ref(false);
+const htmlPreviewContent = ref('');
+
+// (新增) JavaScript 运行结果模态框状态
+const showJsResult = ref(false);
+const jsResultContent = ref('');
+
+// (新增) 为代码块添加复制按钮
+const addCodeBlockCopyButtons = (container) => {
+  if (!container) return;
+  
+  // 查找所有代码块
+  const codeBlocks = container.querySelectorAll('pre');
+  
+  codeBlocks.forEach((pre, index) => {
+    // 检查是否已经添加过按钮（检查父元素是否是 wrapper）
+    if (pre.parentElement && pre.parentElement.classList.contains('code-block-wrapper')) return;
+    
+    // 获取代码内容
+    const codeElement = pre.querySelector('code');
+    const codeText = codeElement ? codeElement.innerText || codeElement.textContent : pre.innerText || pre.textContent;
+    
+    // (新增) 检测代码块语言
+    let isHtml = false;
+    let isJavascript = false;
+    if (codeElement) {
+      const codeClasses = codeElement.className || '';
+      // marked.js 通常生成 "language-html" 类名
+      isHtml = codeClasses.includes('language-html') || 
+               codeClasses.includes('lang-html') ||
+               codeElement.classList.contains('language-html') ||
+               codeElement.classList.contains('lang-html');
+      
+      // (新增) 检测 JavaScript 代码块
+      isJavascript = codeClasses.includes('language-javascript') ||
+                     codeClasses.includes('lang-javascript') ||
+                     codeClasses.includes('language-js') ||
+                     codeClasses.includes('lang-js') ||
+                     codeElement.classList.contains('language-javascript') ||
+                     codeElement.classList.contains('lang-javascript') ||
+                     codeElement.classList.contains('language-js') ||
+                     codeElement.classList.contains('lang-js');
+    }
+    
+    // 创建包装器
+    const wrapper = document.createElement('div');
+    wrapper.className = 'code-block-wrapper';
+    
+    // 将 pre 元素移动到包装器中
+    const parent = pre.parentNode;
+    parent.insertBefore(wrapper, pre);
+    wrapper.appendChild(pre);
+    
+    // 创建按钮容器
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'code-block-buttons';
+    
+    // 创建复制按钮
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'code-block-copy-btn';
+    copyBtn.title = '复制代码';
+    copyBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </svg>
+    `;
+    
+    // 创建成功图标（复制成功后显示）
+    const checkIcon = document.createElement('span');
+    checkIcon.className = 'code-block-check-icon';
+    checkIcon.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    `;
+    checkIcon.style.display = 'none';
+    
+    buttonContainer.appendChild(copyBtn);
+    buttonContainer.appendChild(checkIcon);
+    
+    // (新增) 如果是 HTML 代码块，添加运行按钮
+    if (isHtml) {
+      const runBtn = document.createElement('button');
+      runBtn.className = 'code-block-run-btn';
+      runBtn.title = '运行 HTML';
+      runBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+      `;
+      
+      runBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // 打开 HTML 预览模态框
+        htmlPreviewContent.value = codeText;
+        showHtmlPreview.value = true;
+      });
+      
+      buttonContainer.appendChild(runBtn);
+    }
+    
+    // (新增) 如果是 JavaScript 代码块，添加运行按钮
+    if (isJavascript) {
+      const runBtn = document.createElement('button');
+      runBtn.className = 'code-block-run-btn';
+      runBtn.title = '运行 JavaScript';
+      runBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+      `;
+      
+      runBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // 执行 JavaScript 代码并显示结果
+        executeJavaScript(codeText);
+      });
+      
+      buttonContainer.appendChild(runBtn);
+    }
+    
+    wrapper.appendChild(buttonContainer);
+    
+    // 添加点击事件
+    copyBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      
+      try {
+        await navigator.clipboard.writeText(codeText);
+        
+        // 显示成功状态
+        copyBtn.style.display = 'none';
+        checkIcon.style.display = 'block';
+        
+        // 存储状态
+        codeBlockCopiedStates.value.set(index, true);
+        
+        // 2秒后恢复
+        setTimeout(() => {
+          copyBtn.style.display = 'block';
+          checkIcon.style.display = 'none';
+          codeBlockCopiedStates.value.set(index, false);
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy code: ', err);
+      }
+    });
+  });
+};
+
+// (新增) 监听 Markdown 渲染变化
+watch(() => renderedMarkdown.value, () => {
+  if (!props.isUser) {
+    nextTick(() => {
+      addCodeBlockCopyButtons(messageTextRef.value);
+    });
+  }
+}, { immediate: true });
+
+// (新增) 监听思考过程渲染变化
+watch(() => [renderedthinkProcess.value, showthinkProcess.value], () => {
+  if (showthinkProcess.value && thinkContentRef.value) {
+    nextTick(() => {
+      addCodeBlockCopyButtons(thinkContentRef.value);
+    });
+  }
+}, { immediate: true });
+
+// (新增) 执行 JavaScript 代码并捕获结果
+const executeJavaScript = (code) => {
+  const logs = [];
+  let returnValue = undefined;
+  let error = null;
+  
+  // 保存原始的 console.log
+  const oldLog = console.log;
+  const oldError = console.error;
+  const oldWarn = console.warn;
+  const oldInfo = console.info;
+  
+  try {
+    // 拦截 console.log 等方法
+    console.log = (...args) => {
+      logs.push(`[LOG] ${args.map(arg => {
+        if (typeof arg === 'object') {
+          try {
+            return JSON.stringify(arg, null, 2);
+          } catch (e) {
+            return String(arg);
+          }
+        }
+        return String(arg);
+      }).join(' ')}`);
+    };
+    
+    console.error = (...args) => {
+      logs.push(`[ERROR] ${args.map(arg => {
+        if (typeof arg === 'object') {
+          try {
+            return JSON.stringify(arg, null, 2);
+          } catch (e) {
+            return String(arg);
+          }
+        }
+        return String(arg);
+      }).join(' ')}`);
+    };
+    
+    console.warn = (...args) => {
+      logs.push(`[WARN] ${args.map(arg => {
+        if (typeof arg === 'object') {
+          try {
+            return JSON.stringify(arg, null, 2);
+          } catch (e) {
+            return String(arg);
+          }
+        }
+        return String(arg);
+      }).join(' ')}`);
+    };
+    
+    console.info = (...args) => {
+      logs.push(`[INFO] ${args.map(arg => {
+        if (typeof arg === 'object') {
+          try {
+            return JSON.stringify(arg, null, 2);
+          } catch (e) {
+            return String(arg);
+          }
+        }
+        return String(arg);
+      }).join(' ')}`);
+    };
+    
+    // 使用 new Function() 执行代码
+    const func = new Function(code);
+    returnValue = func();
+    
+  } catch (e) {
+    error = e;
+  } finally {
+    // 恢复原始的 console 方法
+    console.log = oldLog;
+    console.error = oldError;
+    console.warn = oldWarn;
+    console.info = oldInfo;
+  }
+  
+  // 格式化输出结果
+  let resultText = '';
+  
+  // 添加 console 输出
+  if (logs.length > 0) {
+    resultText += '=== Console 输出 ===\n';
+    resultText += logs.join('\n') + '\n\n';
+  }
+  
+  // 添加返回值
+  if (returnValue !== undefined) {
+    resultText += '=== 返回值 ===\n';
+    if (typeof returnValue === 'object') {
+      try {
+        resultText += JSON.stringify(returnValue, null, 2) + '\n\n';
+      } catch (e) {
+        resultText += String(returnValue) + '\n\n';
+      }
+    } else {
+      resultText += String(returnValue) + '\n\n';
+    }
+  }
+  
+  // 添加错误信息
+  if (error) {
+    resultText += '=== 错误信息 ===\n';
+    resultText += error.toString() + '\n';
+    if (error.stack) {
+      resultText += '\n堆栈跟踪:\n' + error.stack;
+    }
+  }
+  
+  // 如果没有输出，显示提示
+  if (!resultText.trim()) {
+    resultText = '代码执行完成，无输出。';
+  }
+  
+  // 显示结果
+  jsResultContent.value = resultText;
+  showJsResult.value = true;
+};
+
+// (新增) 组件挂载后也执行一次
+onMounted(() => {
+  if (!props.isUser) {
+    nextTick(() => {
+      addCodeBlockCopyButtons(messageTextRef.value);
+      if (showthinkProcess.value) {
+        addCodeBlockCopyButtons(thinkContentRef.value);
+      }
+    });
+  }
+});
 </script>
 
 <style scoped>
@@ -275,6 +679,7 @@ const formatTime = (date) => {
   display: flex;
   margin-bottom: 1rem;
   max-width: 80%;
+  overflow: visible; /* 确保按钮不被裁剪 */
 }
 
 .message.user-message {
@@ -317,7 +722,8 @@ const formatTime = (date) => {
   padding: 0; 
   border-radius: var(--radius);
   position: relative; /* (修改) 设为 relative 以便定位弹窗 */
-  width: 100%; 
+  width: 100%;
+  overflow: visible; /* 确保按钮不被裁剪 */
 }
 
 .message:not(.user-message) .message-content {
@@ -338,6 +744,51 @@ const formatTime = (date) => {
 .user-message .message-text {
   padding: 0; 
   white-space: pre-wrap;
+}
+
+/* (新增) 用户消息文本包装器 */
+.user-message-text-wrapper {
+  position: relative;
+  padding: 0.75rem 1rem;
+  overflow: visible; /* 确保按钮不被裁剪 */
+}
+
+.user-message-content {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* (新增) 用户消息操作按钮容器 - 定位到气泡正下方 */
+.user-action-buttons {
+  position: absolute;
+  top: 100%; /* 关键：将容器的顶部移动到父容器的底部 */
+  left: 0.5rem; /* 关键：从左侧缩进，与气泡内的文本对齐 */
+  margin-top: 10px; /* 关键：在气泡和按钮之间创建清晰的垂直间隙 */
+  
+  display: flex;
+  flex-direction: row; /* 关键：改为水平排列 */
+  gap: 0.5rem; /* 关键：在两个按钮之间创建水平间距 */
+  
+  z-index: 10;
+}
+
+/* (新增) 用户消息复制按钮 */
+.user-copy-btn,
+.user-edit-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.user-copy-btn:hover:not(:disabled),
+.user-edit-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  opacity: 1;
 }
 
 /* (修改) .message-time 布局 */
@@ -578,6 +1029,268 @@ const formatTime = (date) => {
   display: inline-block;
   vertical-align: text-bottom;
   margin-right: 0.25rem;
+}
+
+/* (新增) 代码块包装器样式 */
+:deep(.code-block-wrapper) {
+  position: relative;
+  margin: 0.5rem 0;
+}
+
+/* (新增) 代码块按钮容器样式 */
+:deep(.code-block-buttons) {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.25rem;
+  z-index: 10;
+}
+
+/* (新增) 代码块复制按钮样式 */
+:deep(.code-block-copy-btn),
+:deep(.code-block-check-icon),
+:deep(.code-block-run-btn) {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  opacity: 0.8;
+}
+
+:deep(.code-block-copy-btn:hover),
+:deep(.code-block-run-btn:hover) {
+  background-color: rgba(255, 255, 255, 1);
+  opacity: 1;
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+:deep(.code-block-check-icon) {
+  background-color: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+}
+
+:deep(.code-block-run-btn) {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+:deep(.code-block-run-btn:hover) {
+  background-color: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+:deep(.code-block-copy-btn svg),
+:deep(.code-block-check-icon svg),
+:deep(.code-block-run-btn svg) {
+  width: 1rem;
+  height: 1rem;
+  display: block;
+}
+
+/* (新增) 代码块容器样式调整 */
+:deep(pre) {
+  position: relative;
+  margin: 0;
+}
+
+/* (新增) HTML 预览模态框样式 */
+.html-preview-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fade-in 0.2s ease;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.html-preview-modal {
+  background-color: var(--card-bg, #ffffff);
+  border-radius: 8px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 90%;
+  max-width: 900px;
+  height: 80%;
+  max-height: 700px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slide-up 0.3s ease;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.html-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  flex-shrink: 0;
+}
+
+.html-preview-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.html-preview-close-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: var(--text-secondary, #6b7280);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.html-preview-close-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary, #111827);
+}
+
+.html-preview-close-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.html-preview-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.html-preview-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* (新增) JavaScript 运行结果模态框样式 */
+.js-result-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fade-in 0.2s ease;
+}
+
+.js-result-modal {
+  background-color: var(--card-bg, #ffffff);
+  border-radius: 8px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 90%;
+  max-width: 800px;
+  height: 70%;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slide-up 0.3s ease;
+}
+
+.js-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  flex-shrink: 0;
+}
+
+.js-result-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.js-result-close-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: var(--text-secondary, #6b7280);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.js-result-close-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary, #111827);
+}
+
+.js-result-close-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.js-result-content {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem 1.5rem;
+  background-color: var(--code-bg, #1e1e1e);
+}
+
+.js-result-pre {
+  margin: 0;
+  padding: 1rem;
+  background-color: var(--code-bg, #1e1e1e);
+  color: var(--code-text, #d4d4d4);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 </style>
 

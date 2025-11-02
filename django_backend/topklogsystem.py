@@ -41,13 +41,28 @@ from PyPDF2 import PdfReader  # 用于处理 .pdf 文件
 
 
 class TopKLogSystem:
+    """
+    基于 DeepSeek-R1:7B 的日志分析系统
+    
+    使用模型:
+    - LLM: DeepSeek-R1:7B (deepseek-r1:7b)
+      * 架构: 基于 Qwen2 架构的 DeepSeek-R1 模型
+      * 参数量: 7.6B
+      * 上下文长度: 131072 tokens
+      * 特性: 支持思考过程 (thinking)，使用 <think> 标签
+      * Temperature: 0.1 (低温度保证输出稳定性)
+    - Embedding: BGE-Large (bge-large:latest)
+      * 用于向量检索和文档嵌入
+    """
     def __init__(
         self,
         log_path: str,
         llm: str,
         embedding_model: str,
     ) -> None:
+        # 初始化嵌入模型 (BGE-Large)
         self.embedding_model = OllamaEmbeddings(model=embedding_model)
+        # 初始化大语言模型 (DeepSeek-R1:7B)
         self.llm = OllamaLLM(model=llm, temperature=0.1)
 
         Settings.llm = self.llm
@@ -342,8 +357,11 @@ class TopKLogSystem:
 
 
 if __name__ == "__main__":
+    # 测试使用 DeepSeek-R1:7B 和 BGE-Large 嵌入模型
     system = TopKLogSystem(
-        log_path="./data/log", llm="deepseek-r1:7b", embedding_model="bge-large:latest"
+        log_path="./data/log", 
+        llm="deepseek-r1:7b",  # DeepSeek-R1:7B - 基于 Qwen2 架构
+        embedding_model="bge-large:latest"  # BGE-Large 嵌入模型
     )
 
     query1 = "我遇到了数据库问题"

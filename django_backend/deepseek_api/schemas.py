@@ -1,5 +1,5 @@
 from ninja import Schema
-from typing import Optional
+from typing import Optional, List, Dict
 
 
 class LoginIn(Schema):
@@ -15,6 +15,7 @@ class LoginOut(Schema):
 class ChatIn(Schema):
     session_id: str = "default_session"
     user_input: str
+    context: Optional[List[Dict[str, str]]] = None  # (新增) 可选的上下文数组，格式: [{"role": "user", "content": "..."}, ...]
 
 
 class ChatOut(Schema):

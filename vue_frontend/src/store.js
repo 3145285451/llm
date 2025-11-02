@@ -7,7 +7,10 @@ export const useStore = defineStore('main', {
     sessions: JSON.parse(localStorage.getItem('sessions') || '["default_session"]'),
     messages: {}, // (e.g., { 'session_id': [ { id, isUser, content, think_process, duration, timestamp } ] })
     loading: false,
-    error: null
+    error: null,
+    // (新增) 编辑状态
+    isEditing: false,
+    editingMessageId: null
   }),
 
   actions: {
@@ -99,6 +102,34 @@ export const useStore = defineStore('main', {
       // (新增) 设置最终元数据
       if (payload.duration) {
         lastMessage.duration = payload.duration;
+      }
+    },
+
+    // (新增) 更新指定索引的消息 (用于编辑模式的流式)
+    updateMessageAtIndex(sessionId, messageIndex, payload) {
+      if (!this.messages[sessionId] || !this.messages[sessionId][messageIndex]) {
+        return;
+      }
+
+      const message = this.messages[sessionId][messageIndex];
+
+      // (新增) 累积 chunk
+      if (payload.content_chunk) {
+        if (!message.content) {
+          message.content = '';
+        }
+        message.content += payload.content_chunk;
+      }
+      if (payload.think_chunk) {
+        // (修复) 确保 think_process 是字符串
+        if (message.think_process === null || message.think_process === undefined) {
+          message.think_process = "";
+        }
+        message.think_process += payload.think_chunk;
+      }
+      // (新增) 设置最终元数据
+      if (payload.duration) {
+        message.duration = payload.duration;
       }
     },
 
@@ -198,6 +229,55 @@ export const useStore = defineStore('main', {
       setTimeout(() => {
         this.error = null;
       }, 3000);
+    },
+
+    // (新增) 设置编辑状态
+    setEditing(messageId) {
+      this.isEditing = true;
+      this.editingMessageId = messageId;
+    },
+
+    // (新增) 清除编辑状态
+    clearEditing() {
+      this.isEditing = false;
+      this.editingMessageId = null;
+    },
+
+    // (新增) 替换消息内容和删除后续消息（用于编辑模式的完成）
+    replaceMessagesFromIndex(sessionId, startIndex, newUserContent, newAiContent) {
+      if (!this.messages[sessionId] || startIndex < 0 || startIndex >= this.messages[sessionId].length) {
+        return;
+      }
+
+      // 1. 替换用户消息内容
+      if (this.messages[sessionId][startIndex].isUser) {
+        this.messages[sessionId][startIndex].content = newUserContent;
+      }
+
+      // 2. 确保下一条消息是 AI 消息，然后替换其内容
+      if (startIndex + 1 < this.messages[sessionId].length) {
+        const aiMessage = this.messages[sessionId][startIndex + 1];
+        if (!aiMessage.isUser) {
+          aiMessage.content = newAiContent || '';
+          aiMessage.think_process = '';
+          aiMessage.duration = null;
+        }
+      } else {
+        // 如果没有 AI 消息，创建一个
+        this.messages[sessionId].push({
+          id: Date.now() + Math.random(),
+          isUser: false,
+          content: newAiContent || '',
+          think_process: '',
+          duration: null,
+          timestamp: new Date()
+        });
+      }
+
+      // 3. 删除从 startIndex + 2 开始的所有后续消息
+      if (startIndex + 2 < this.messages[sessionId].length) {
+        this.messages[sessionId].splice(startIndex + 2);
+      }
     }
   }
 });

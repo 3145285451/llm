@@ -11,13 +11,16 @@ import json  # (新增) 导入 json
 
 logger = logging.getLogger(__name__)
 
-# (修改) 全局初始化 TopKLogSystem
+# 全局初始化 TopKLogSystem
+# 使用 DeepSeek-R1:7B 作为主模型，bge-large:latest 作为嵌入模型
 # 避免在每次API调用时都重新加载索引，极大提高效率
 try:
     log_system = TopKLogSystem(
-        log_path="./data/log", llm="deepseek-r1:7b", embedding_model="bge-large:latest"
+        log_path="./data/log", 
+        llm="deepseek-r1:7b",  # DeepSeek-R1:7B - 基于 Qwen2 架构，支持思考过程 (thinking)
+        embedding_model="bge-large:latest"  # BGE-Large 嵌入模型，用于向量检索
     )
-    logger.info("TopKLogSystem 全局初始化成功。")
+    logger.info("TopKLogSystem 全局初始化成功。使用模型: DeepSeek-R1:7B")
 except Exception as e:
     log_system = None
     logger.error(f"TopKLogSystem 全局初始化失败: {e}")
@@ -29,8 +32,16 @@ def deepseek_r1_api_call(
     prompt: str, conversation_history: List[Dict] = None
 ):  # -> Generator[str, None, None]
     """
-    (修改) 调用 DeepSeek-R1 API 函数 - 流式。
-    (修改) 仅返回 *原始* 文本块 (包含 <think>) 的生成器。
+    调用 DeepSeek-R1:7B 模型 API 函数 - 流式响应。
+    
+    模型信息:
+    - 模型名称: deepseek-r1:7b
+    - 架构: 基于 Qwen2 架构的 DeepSeek-R1 模型
+    - 参数量: 7.6B
+    - 上下文长度: 131072 tokens
+    - 特性: 支持思考过程 (thinking)，使用 <think> 标签
+    
+    返回: 原始文本块的生成器，包含 <think> 标签的思考过程
     """
 
     if log_system is None:
