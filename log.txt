@@ -1,0 +1,4 @@
+(徐嘉文,11月2日,django_backend/topklogsystem.py文件_load_documents函数)对文件加载函数进行了修改,添加了可加载的文件的种类
+(徐嘉文,11月2日)运行前先执行pip install python-docx PyPDF2 -i https://pypi.tuna.tsinghua.edu.cn/simple/
+(徐嘉文,11月2日,django_backend/topklogsystem.py文件_build_vectorstore函数)只有vector_stores存在时,才进行向量数据库构建,节省时间,如果后续有新的知识库添加,请删除vector_stores,这样代码就会重新构建向量数据库
+(徐嘉文,11月2日)在网上暂时没有找到比较好的各个数据库的故障分析的csv或txt源文件,不知道该如何寻找优秀的故障分析文件

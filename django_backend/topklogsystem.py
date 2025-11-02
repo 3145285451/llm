@@ -36,6 +36,8 @@ logger = logging.getLogger(__name__)
 
 # (新增) 导入 re
 import re
+from docx import Document as DocxDocument  # 用于处理 .docx 文件
+from PyPDF2 import PdfReader  # 用于处理 .pdf 文件
 
 
 class TopKLogSystem:
@@ -56,8 +58,15 @@ class TopKLogSystem:
         self.vector_store = None
         self._build_vectorstore()
 
+    # 构建向量数据库的核心函数
     def _build_vectorstore(self):
         vector_store_path = "./data/vector_stores"
+        
+        # (修改)检查 vector_stores 文件夹是否存在
+        if os.path.exists(vector_store_path):
+            logger.info(f"向量数据库文件夹已存在，跳过构建: {vector_store_path}")
+            return
+
         os.makedirs(vector_store_path, exist_ok=True)
 
         chroma_client = chromadb.PersistentClient(path=vector_store_path)
@@ -74,7 +83,12 @@ class TopKLogSystem:
                 show_progress=True,
             )
             logger.info(f"日志库索引构建完成，共 {len(log_documents)} 条日志")
-
+        else:
+            logger.info("未加载到任何日志文档，向量数据库未更新")
+    
+    
+    
+    #(修改)该函数用来读取文档,添加可读取文档类型
     @staticmethod
     def _load_documents(data_path: str) -> List[Document]:
         if not os.path.exists(data_path):
@@ -83,25 +97,103 @@ class TopKLogSystem:
         documents = []
         for file in os.listdir(data_path):
             ext = os.path.splitext(file)[1]
-            if ext not in [".txt", ".md", ".json", ".jsonl", ".csv"]:
+            if ext not in [".txt", ".md", ".json", ".jsonl", ".csv", ".log", ".xml", ".yaml", ".yml", ".docx", ".pdf"]:
                 continue
             file_path = f"{data_path}/{file}"
             try:
                 if ext == ".csv":
-                    chunk_size = 1000
-                    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
-                        for row in chunk.itertuples(index=False):
-                            content = str(row).replace("Pandas", " ")
-                            documents.append(Document(text=content))
+                    documents.extend(TopKLogSystem._process_csv(file_path))
+                elif ext in [".json", ".jsonl"]:
+                    documents.extend(TopKLogSystem._process_json(file_path, ext))
+                elif ext in [".yaml", ".yml"]:
+                    documents.extend(TopKLogSystem._process_yaml(file_path))
+                elif ext == ".xml":
+                    documents.extend(TopKLogSystem._process_xml(file_path))
+                elif ext == ".log":
+                    documents.extend(TopKLogSystem._process_log(file_path))
+                elif ext == ".docx":
+                    documents.extend(TopKLogSystem._process_docx(file_path))
+                elif ext == ".pdf":
+                    documents.extend(TopKLogSystem._process_pdf(file_path))
                 else:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        content = f.read()
-                        doc = Document(
-                            text=content,
-                        )
-                        documents.append(doc)
+                    documents.extend(TopKLogSystem._process_text(file_path))
             except Exception as e:
                 logger.error(f"加载文档失败 {file_path}: {e}")
+        return documents
+
+    #(添加)各种文件类型的处理函数
+    @staticmethod
+    def _process_csv(file_path: str) -> List[Document]:
+        documents = []
+        chunk_size = 1000
+        for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+            for row in chunk.itertuples(index=False):
+                content = str(row).replace("Pandas", " ")
+                documents.append(Document(text=content))
+        return documents
+
+    @staticmethod
+    def _process_json(file_path: str, ext: str) -> List[Document]:
+        documents = []
+        with open(file_path, "r", encoding="utf-8") as f:
+            if ext == ".json":
+                data = json.load(f)
+                documents.append(Document(text=json.dumps(data, ensure_ascii=False)))
+            elif ext == ".jsonl":
+                for line in f:
+                    data = json.loads(line.strip())
+                    documents.append(Document(text=json.dumps(data, ensure_ascii=False)))
+        return documents
+
+    @staticmethod
+    def _process_yaml(file_path: str) -> List[Document]:
+        documents = []
+        with open(file_path, "r", encoding="utf-8") as f]:
+            content = f.read()
+            documents.append(Document(text=content))
+        return documents
+
+    @staticmethod
+    def _process_xml(file_path: str) -> List[Document]:
+        documents = []
+        with open(file_path, "r", encoding="utf-8") as f]:
+            content = f.read()
+            documents.append(Document(text=content))
+        return documents
+
+    @staticmethod
+    def _process_log(file_path: str) -> List[Document]:
+        documents = []
+        with open(file_path, "r", encoding="utf-8") as f]:
+            for line in f:
+                documents.append(Document(text=line.strip()))
+        return documents
+
+    @staticmethod
+    def _process_docx(file_path: str) -> List[Document]:
+        documents = []
+        doc = DocxDocument(file_path)
+        for paragraph in doc.paragraphs:
+            if paragraph.text.strip():
+                documents.append(Document(text=paragraph.text.strip()))
+        return documents
+
+    @staticmethod
+    def _process_pdf(file_path: str) -> List[Document]:
+        documents = []
+        reader = PdfReader(file_path)
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                documents.append(Document(text=text.strip()))
+        return documents
+
+    @staticmethod
+    def _process_text(file_path: str) -> List[Document]:
+        documents = []
+        with open(file_path, "r", encoding="utf-8") as f]:
+            content = f.read()
+            documents.append(Document(text=content))
         return documents
 
     def retrieve_logs(self, query: str, top_k: int = 10) -> List[Dict]:

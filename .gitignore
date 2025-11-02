@@ -11,3 +11,9 @@ db.sqlite3
 /media/
 
 django_backend/data/vector_stores/
+
+# vscode
+.vscode
+
+# nodejs
+vue_frontend/node_nodules/
