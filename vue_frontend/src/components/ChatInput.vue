@@ -1,5 +1,25 @@
 <template>
   <div class="chat-input-container">
+    <!-- (新增) 搜索选项开关 -->
+    <div class="chat-options">
+      <label class="option-label" for="db-search-toggle">
+        <input
+          type="checkbox"
+          id="db-search-toggle"
+          v-model="useDbSearch"
+        />
+        <span>数据库查询</span>
+      </label>
+      <label class="option-label" for="web-search-toggle">
+        <input
+          type="checkbox"
+          id="web-search-toggle"
+          v-model="useWebSearch"
+        />
+        <span>联网搜索</span>
+      </label>
+    </div>
+
     <textarea
       ref="textareaRef"
       v-model="message"
@@ -30,7 +50,9 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits, defineExpose, nextTick } from 'vue';
+// (新增) 导入 computed 和 useStore
+import { ref, defineProps, defineEmits, defineExpose, nextTick, computed } from 'vue';
+import { useStore } from '../store';
 
 const props = defineProps({
   loading: {
@@ -43,6 +65,20 @@ const emits = defineEmits(['send']);
 
 const message = ref('');
 const textareaRef = ref(null);
+
+// (新增) Pinia store
+const store = useStore();
+
+// (新增) 计算属性绑定到 store
+const useDbSearch = computed({
+  get: () => store.useDbSearch,
+  set: (value) => store.setUseDbSearch(value)
+});
+
+const useWebSearch = computed({
+  get: () => store.useWebSearch,
+  set: (value) => store.setUseWebSearch(value)
+});
 
 const setContent = (content) => {
   message.value = content || '';
@@ -93,6 +129,27 @@ defineExpose({
   padding: 1rem;
   border-top: 1px solid var(--border-color);
 }
+
+/* (新增) 选项样式 */
+.chat-options {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.option-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.option-label input {
+  cursor: pointer;
+}
+
 
 .chat-input {
   min-height: 80px;

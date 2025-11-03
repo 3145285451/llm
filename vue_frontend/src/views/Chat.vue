@@ -95,6 +95,10 @@ const loading = computed(() => store.loading);
 const error = computed(() => store.error);
 const isEditing = computed(() => store.isEditing);
 const editingMessageId = computed(() => store.editingMessageId);
+// (新增) 获取搜索选项状态
+const useDbSearch = computed(() => store.useDbSearch);
+const useWebSearch = computed(() => store.useWebSearch);
+
 
 // 滚动到底部
 const scrollToBottom = async () => {
@@ -221,7 +225,10 @@ const handleNormalSend = async (sessionId, content) => {
     () => {
       store.setLoading(false);
       scrollToBottom(); // 滚动
-    }
+    },
+    null, // (新增) context 为 null
+    useDbSearch.value,  // (新增)
+    useWebSearch.value  // (新增)
   );
 };
 
@@ -327,7 +334,9 @@ const handleEditSend = async (sessionId, editedContent) => {
       scrollToBottom();
     },
     // 传入上下文
-    context
+    context,
+    useDbSearch.value,  // (新增)
+    useWebSearch.value  // (新增)
   );
 };
 
@@ -351,7 +360,8 @@ const handleRegenerate = async () => {
   await scrollToBottom(); // 滚动，隐藏刚删除的消息
   
   // 3. 重新发送
-  await handleSendMessage(lastUserMessage.value);
+  // (修改) 使用 handleNormalSend 以便传递搜索标志
+  await handleNormalSend(sessionId, lastUserMessage.value);
 };
 
 // 处理编辑消息

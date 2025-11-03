@@ -10,10 +10,22 @@ export const useStore = defineStore('main', {
     error: null,
     // (新增) 编辑状态
     isEditing: false,
-    editingMessageId: null
+    editingMessageId: null,
+
+    // (新增) 搜索选项
+    useDbSearch: true,
+    useWebSearch: false
   }),
 
   actions: {
+    // (新增) 设置搜索选项
+    setUseDbSearch(value) {
+      this.useDbSearch = value;
+    },
+    setUseWebSearch(value) {
+      this.useWebSearch = value;
+    },
+
     // 保存API Key
     setApiKey(key) {
       this.apiKey = key;

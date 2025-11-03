@@ -33,14 +33,16 @@ axiosApi.interceptors.response.use(
 );
 
 
-// (新增) 流式聊天 API
-async function streamChat(sessionId, userInput, onData, onError, onComplete, context = null) {
+// (修改) 流式聊天 API，添加搜索选项
+async function streamChat(sessionId, userInput, onData, onError, onComplete, context = null, useDbSearch, useWebSearch) {
   const token = localStorage.getItem('apiKey');
 
   try {
     const body = {
       session_id: sessionId,
       user_input: userInput,
+      use_db_search: useDbSearch,   // (新增)
+      use_web_search: useWebSearch, // (新增)
     };
     
     // (新增) 如果提供了 context，添加到请求体

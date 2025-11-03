@@ -251,6 +251,7 @@ class TopKLogSystem:
             logger.error(f"日志检索失败: {e}")
             return []
 
+    # (修改) context 现在是一个字典
     def generate_response(self, query: str, context: Dict, history: List[Dict] = None):
         prompt_messages = self._build_prompt(query, context, history)
         try:
@@ -261,6 +262,7 @@ class TopKLogSystem:
             logger.error(f"LLM调用失败: {e}")
             yield f"生成响应时出错: {str(e)}"
 
+    # (修改) context 现在是一个字典, 并更新 Prompt
     def _build_prompt(
         self, query: str, context: Dict, history: List[Dict] = None
     ) -> List:
@@ -272,11 +274,17 @@ class TopKLogSystem:
             你有两种响应模式：
             1.  **[SRE分析模式]**: 当用户的问题与故障排查、日志分析、系统错误相关时使用。
             2.  **[常规对话模式]**: 当用户进行常规闲聊 (如 "你好")、历史回顾 (如 "我刚才问了什么") 或提出与日志无关的问题 (如 "介绍一下天津大学") 时使用。
+            
+            **[!!! 可用工具 (SRE模式专用) !!!]**
+            你现在有两种工具上下文：
+            1.  **[日志数据库 (Log DB)]**: 包含本地的、详细的系统日志。
+            2.  **[联网搜索 (Web Search)]**: 包含来自互联网的实时信息。
 
             你的回答必须遵循以下质量要求：
-            1.  **专业严谨**：在 [SRE分析模式] 下，你的分析必须基于上下文（检索到的日志 和/或 历史对话），严禁凭空猜测。
-            2.  **清晰可读**：使用 Markdown 格式（如列表、代码块、粗体）来组织你的回答。
-            3.  **(新增) 上下文感知**：你必须能够 **自主判断** 是否需要结合 **历史对话** 来理解用户的真实意图或SRE问题。
+            1.  **专业严谨**：在 [SRE分析模式] 下，你的分析必须基于上下文（[日志数据库] 和/或 [联网搜索]），严禁凭空猜测。
+            2.  **优先使用日志**：如果 [日志数据库] 提供了足够的信息，优先使用它。只有当日志信息不足或用户明确询问需要外部知识时，才使用 [联网搜索]。
+            3.  **清晰可读**：使用 Markdown 格式（如列表、代码块、粗体）来组织你的回答。
+            4.  **上下文感知**：你必须能够 **自主判断** 是否需要结合 **历史对话** 来理解用户的真实意图或SRE问题。
 
             **[!!! 绝对指令：输出格式 !!!]**
             1.  你 **必须** 且 **只能** 使用 `<think>...</think>` 标签来包裹你的所有内部思考步骤 (包括意图分析、SRE分析框架等)。
@@ -285,18 +293,32 @@ class TopKLogSystem:
             """
         )
 
-        # 2. 准备日志上下文
-        log_context_str = "## [可用工具 (SRE模式专用)] 相关日志参考:\n"
-        if not context:
-            log_context_str += "（未检索到相关历史日志，仅在SRE模式下报告此信息）\n"
+        # (修改) 2. 准备日志上下文 (Log DB)
+        log_context_str = "## [可用工具 1: 日志数据库 (Log DB)]\n"
+        log_data = context.get("log_context", []) # 从字典获取
+        if not log_data:
+            log_context_str += "（未从日志数据库检索到相关内容）\n"
         else:
-            for i, log in enumerate(context, 1):
-                log_context_str += f"日志 {i} : {log['content']}\n"
+            for i, log in enumerate(log_data, 1):
+                # 确保 score 是浮点数以便格式化
+                score = log.get('score', 0.0)
+                log_context_str += f"日志 {i} (Score: {score:.2f}): {log['content']}\n"
 
+        # (新增) 3. 准备联网搜索上下文 (Web Search)
+        web_context_str = "## [可用工具 2: 联网搜索 (Web Search)]\n"
+        web_data = context.get("web_context", [])
+        if not web_data:
+            web_context_str += "（未启用或未从联网搜索检索到相关内容）\n"
+        else:
+            for i, web_result in enumerate(web_data, 1):
+                web_context_str += f"网页 {i} (Source: {web_result.get('source', 'N/A')}): {web_result['content']}\n"
+
+
+        # (修改) 4. 更新用户模板
         user_message_template = HumanMessagePromptTemplate.from_template(
             """
-            ## [可用工具 (SRE模式专用)]
             {log_context}
+            {web_context}
             
             ---
             ## [任务] 当前用户问题:
@@ -311,22 +333,24 @@ class TopKLogSystem:
             
             **步骤 1: 意图分析 (Intent Analysis)**
             * 用户当前问题是："{query}"
-            * **(新增) 历史对话上下文分析：**(简要评估历史对话。例如：用户是在追问SRE问题、转换话题、提供新信息，还是在进行常规对话？)
-            * **(修改) 意图判断：**(基于 **当前问题** 和 **历史上下文**，填写 [SRE分析模式] 或 [常规对话模式])
+            * 历史对话上下文分析：(简要评估历史对话。例如：用户是在追问SRE问题、转换话题、提供新信息，还是在进行常规对话？)
+            * 意图判断：(基于 **当前问题** 和 **历史上下文**，填写 [SRE分析模式] 或 [常规对话模式])
 
             **步骤 2: 响应策略 (Response Strategy)**
-            * **(修改) 如果 (If) 意图是 [常规对话模式]**:
-                * 我将生成一个友好、对应的回复。如果问题与历史相关 (如 "我刚才问了什么")，我将 **查阅历史对话** 来回答。如果问题是新闲聊，我将忽略 [可用工具] 中的日志。
-            * **(修改) 如果 (If) 意图是 [SRE分析模式]**:
-                * 我必须使用下面的 [SRE分析框架] 来分析 [可用工具] 中的日志，并结合 **历史对话** 和 **用户问题** 进行回答。
+            * 如果 (If) 意图是 [常规对话模式]:
+                * 我将生成一个友好、对应的回复。我将忽略 [可用工具] 中的所有上下文。
+            * 如果 (If) 意图是 [SRE分析模式]:
+                * 我必须使用下面的 [SRE分析框架] 来分析 [可用工具] 中的 [日志数据库] 和/或 [联网搜索]，并结合 **历史对话** 和 **用户问题** 进行回答。
 
             **步骤 3: SRE分析框架 (仅SRE模式执行)**
             * **a. 问题现象 (Symptom):**
-                * **(修改)** (结合 {query} **以及历史对话**，总结用户描述的完整问题现象。例如，用户可能分多条消息描述了一个问题。)
-            * **b. 日志关联 (Log Correlation):**
-                * (审查 [可用工具] 中的日志。哪些日志条目与 [a. 问题现象] 中总结的内容相关？如果日志不相关或缺失，在此处注明。)
+                * (结合 {query} **以及历史对话**，总结用户描述的完整问题现象。)
+            * **b. 上下文关联 (Context Correlation):**
+                * (审查 [可用工具 1: 日志数据库]。哪些日志与 [a. 问题现象] 相关？)
+                * (审查 [可用工具 2: 联网搜索]。哪些网页结果与 [a. 问题现象] 相关？)
+                * (判断：日志信息是否足够？是否需要 [联网搜索] 来补充背景知识或解决方案？优先使用日志。)
             * **c. 根本原因 (Root Cause Hypothesis):**
-                * **(修改)** (基于 [b. 日志关联]、{query} **和历史对话**，提出1-2个最可能的根本原因。如果信息不足，则指出需要哪些额外信息。)
+                * (基于 [b. 上下文关联]、{query} **和历史对话**，提出1-2个最可能的根本原因。优先使用日志，辅以网页搜索。)
             * **d. 建议方案 (Actionable Steps):**
                 * (提出具体的解决步骤或进一步的排查指令。)
 
@@ -360,17 +384,35 @@ class TopKLogSystem:
                     )
                     formatted_history.append(AIMessage(content=clean_content.strip()))
                 else:
+                    # 兼容旧格式 (如果存在)
                     formatted_history.append(AIMessage(content=msg["content"]))
 
+        # (修改) 传递 web_context
         return prompt_template.format_prompt(
             chat_history=formatted_history,
             log_context=log_context_str,
+            web_context=web_context_str, 
             query=query,
         ).to_messages()
 
-    def query(self, query: str, history: List[Dict] = None):
-        log_results = self.retrieve_logs(query)
-        for chunk in self.generate_response(query, log_results, history):
+    # (修改) 更新 query 方法以适应新的 generate_response 签名 (主要用于内部测试)
+    def query(self, query: str, history: List[Dict] = None, use_db_search: bool = True, use_web_search: bool = False):
+        log_results = []
+        if use_db_search:
+            log_results = self.retrieve_logs(query)
+        
+        web_results = []
+        if use_web_search:
+            # 内部测试无法调用 services.py 的 mock，这里简单模拟
+            logger.info(f"[MOCK-QUERY] 联网搜索: {query}")
+            web_results = [{"content": "模拟网页结果", "source": "mock.com"}]
+
+        combined_context = {
+            "log_context": log_results,
+            "web_context": web_results
+        }
+        
+        for chunk in self.generate_response(query, combined_context, history):
             yield chunk
 
 
@@ -384,9 +426,10 @@ if __name__ == "__main__":
 
     query1 = "我遇到了数据库问题"
     print("查询1:", query1)
-    print("响应1 (流式):")
+    print("响应1 (流式 - 仅数据库):")
     full_response_1 = ""
-    for chunk in system.query(query1):
+    # (修改) 测试调用
+    for chunk in system.query(query1, use_db_search=True, use_web_search=False):
         print(chunk, end="", flush=True)
         full_response_1 += chunk
     print("\n--- 流结束 ---")
@@ -398,9 +441,9 @@ if __name__ == "__main__":
 
     query2 = "我刚才问了什么？"
     print("\n查询2 (测试历史对话):", query2)
-    print("响应2 (流式):")
+    print("响应2 (流式 - 无搜索):")
     full_response_2 = ""
-    for chunk in system.query(query2, history=history_example):
+    for chunk in system.query(query2, history=history_example, use_db_search=False, use_web_search=False):
         print(chunk, end="", flush=True)
         full_response_2 += chunk
     print("\n--- 流结束 ---")
@@ -408,10 +451,10 @@ if __name__ == "__main__":
     query3 = "是连接池耗尽的问题，如何解决？"
     history_example.append({"role": "user", "content": query2})
     history_example.append({"role": "assistant", "content": full_response_2})
-    print("\n查询3 (测试日志分析):", query3)
+    print("\n查询3 (测试日志分析 + 联网):", query3)
     print("响应3 (流式):")
     full_response_3 = ""
-    for chunk in system.query(query3, history=history_example):
+    for chunk in system.query(query3, history=history_example, use_db_search=True, use_web_search=True):
         print(chunk, end="", flush=True)
         full_response_3 += chunk
     print("\n--- 流结束 ---")
@@ -421,8 +464,6 @@ if __name__ == "__main__":
     history_example.append({"role": "assistant", "content": full_response_3})
     print("\n查询4 (测试常规对话):", query4)
     print("响应4 (流式):")
-    for chunk in system.query(query4, history=history_example):
+    for chunk in system.query(query4, history=history_example, use_db_search=False, use_web_search=False):
         print(chunk, end="", flush=True)
     print("\n--- 流结束 ---")
-
-
