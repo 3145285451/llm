@@ -29,7 +29,7 @@
       
       <div v-if="error" class="error-message">{{ error }}</div>
       
-      <div class="messages-container" ref="messagesContainerRef"> <!-- (新增) ref -->
+      <div class="messages-container" ref="messagesContainerRef"> <!-- ref -->
         <div v-if="messages.length === 0" class="empty-state">
           开始与 DeepSeek-KAI.v.0.0.1 的对话吧！
         </div>
@@ -48,7 +48,7 @@
           @edit="handleEditMessage"
         />
         
-        <!-- (修改) loading-indicator 的 v-if 条件 -->
+        <!-- loading-indicator 的 v-if 条件 -->
         <!-- 仅当 loading=true 且最后一条 (AI) 消息完全为空时显示 -->
         <div 
           v-if="loading && 
@@ -73,7 +73,7 @@
 </template>
 
 <script setup>
-import { onMounted, computed, ref, nextTick } from 'vue'; // (新增) ref, nextTick
+import { onMounted, computed, ref, nextTick } from 'vue'; // ref, nextTick
 import { useRouter } from 'vue-router';
 import { useStore } from '../store';
 import api from '../api';
@@ -83,9 +83,9 @@ import ChatInput from '../components/ChatInput.vue';
 
 const store = useStore();
 const router = useRouter();
-const messagesContainerRef = ref(null); // (新增) 消息容器引用
-const chatInputRef = ref(null); // (新增) 聊天输入框引用
-const lastUserMessage = ref(''); // (新增) 存储最后的用户输入
+const messagesContainerRef = ref(null); // 消息容器引用
+const chatInputRef = ref(null); // 聊天输入框引用
+const lastUserMessage = ref(''); // 存储最后的用户输入
 
 // 计算属性
 const sessions = computed(() => store.sessions);
@@ -96,7 +96,7 @@ const error = computed(() => store.error);
 const isEditing = computed(() => store.isEditing);
 const editingMessageId = computed(() => store.editingMessageId);
 
-// (新增) 滚动到底部
+// 滚动到底部
 const scrollToBottom = async () => {
   await nextTick(); // 等待 DOM 更新
   const container = messagesContainerRef.value;
@@ -112,12 +112,12 @@ const loadHistory = async (sessionId) => {
     const response = await api.getHistory(sessionId);
     store.loadHistory(sessionId, response.data.history);
 
-    // (新增) 加载历史后，找到最后的用户消息
+    // 加载历史后，找到最后的用户消息
     const currentMessages = store.messages[sessionId] || [];
     const lastUserMsg = [...currentMessages].reverse().find(m => m.isUser);
     lastUserMessage.value = lastUserMsg ? lastUserMsg.content : '';
 
-    await scrollToBottom(); // (新增) 加载后滚动
+    await scrollToBottom(); // 加载后滚动
   } catch (err) {
     store.setError(err.response?.data?.error || '加载历史记录失败');
   } finally {
@@ -144,9 +144,9 @@ const handleDeleteSession = async (sessionId) => {
         store.addSession('default_session');
     }
     await api.clearHistory(sessionId);
-    store.removeSession(sessionId); // (修改) store.removeSession 会自动切换会话
+    store.removeSession(sessionId); // store.removeSession 会自动切换会话
     store.clearSessionMessages(sessionId);
-    await loadHistory(store.currentSession); // (新增) 加载新会话的历史
+    await loadHistory(store.currentSession); // 加载新会话的历史
   } catch (err) {
     store.setError(err.response?.data?.error || '删除会话失败');
   }
@@ -156,15 +156,15 @@ const handleDeleteSession = async (sessionId) => {
 const handleCreateSession = (sessionId) => {
   store.addSession(sessionId);
   store.clearSessionMessages(sessionId);
-  // (新增) 创建后立即加载（空）历史
+  // 创建后立即加载（空）历史
   loadHistory(sessionId);
 };
 
-// (修改) 处理发送消息 (流式)
+// 处理发送消息 (流式)
 const handleSendMessage = async (content) => {
   const sessionId = currentSession.value;
 
-  // (新增) 步骤二：检查是否为编辑模式
+  // 步骤二：检查是否为编辑模式
   if (isEditing.value && editingMessageId.value) {
     // 步骤三：编辑模式的发送逻辑
     await handleEditSend(sessionId, content);
@@ -174,21 +174,21 @@ const handleSendMessage = async (content) => {
   }
 };
 
-// (新增) 正常发送模式
+// 正常发送模式
 const handleNormalSend = async (sessionId, content) => {
-  // (新增) 存储最后的用户输入
+  // 存储最后的用户输入
   lastUserMessage.value = content;
 
   // 1. 添加用户消息
   store.addMessage(sessionId, true, { content: content });
-  await scrollToBottom(); // (新增) 滚动
+  await scrollToBottom(); // 滚动
   
   // 2. 添加一个空的 AI 回复消息
   const aiMessageId = store.addMessage(sessionId, false, { 
     content: '', 
     think_process: '' 
   });
-  await scrollToBottom(); // (新增) 滚动
+  await scrollToBottom(); // 滚动
   
   store.setLoading(true);
   store.setError(null);
@@ -199,7 +199,7 @@ const handleNormalSend = async (sessionId, content) => {
     content,
     // (onData) 接收 SSE 数据块 (JSON 对象)
     (data) => {
-      // (修改) 方案 5：后端已解析
+      // 方案 5：后端已解析
       if (data.type === 'content') {
         store.updateLastMessage(sessionId, { content_chunk: data.chunk });
       } else if (data.type === 'think') {
@@ -209,28 +209,28 @@ const handleNormalSend = async (sessionId, content) => {
       } else if (data.type === 'error') {
         store.setError(data.chunk || '流式响应出错');
       }
-      scrollToBottom(); // (新增) 流式滚动
+      scrollToBottom(); // 流式滚动
     },
     // (onError)
     (errorMessage) => {
       store.setLoading(false);
       store.setError(errorMessage);
-      scrollToBottom(); // (新增) 滚动
+      scrollToBottom(); // 滚动
     },
     // (onComplete)
     () => {
       store.setLoading(false);
-      scrollToBottom(); // (新增) 滚动
+      scrollToBottom(); // 滚动
     }
   );
 };
 
-// (新增) 编辑模式的发送逻辑（步骤三和四）
+// 编辑模式的发送逻辑（步骤三和四）
 const handleEditSend = async (sessionId, editedContent) => {
   const messageId = editingMessageId.value;
   const chatHistory = messages.value;
 
-  // (新增) 存储最后的用户输入（用于重新生成功能）
+  // 存储最后的用户输入（用于重新生成功能）
   lastUserMessage.value = editedContent;
 
   // 步骤三：发送逻辑
@@ -306,32 +306,32 @@ const handleEditSend = async (sessionId, editedContent) => {
       } else if (data.type === 'error') {
         store.setError(data.chunk || '流式响应出错');
       }
-      scrollToBottom(); // (新增) 流式滚动
+      scrollToBottom(); // 流式滚动
     },
     // (onError)
     (errorMessage) => {
       store.setLoading(false);
       store.setError(errorMessage);
-      store.clearEditing(); // (新增) 清除编辑状态
+      store.clearEditing(); // 清除编辑状态
       scrollToBottom();
     },
     // (onComplete) - 步骤四：接收逻辑的清理
     () => {
       store.setLoading(false);
-      // (新增) 清理编辑状态
+      // 清理编辑状态
       store.clearEditing();
-      // (新增) 清空输入框
+      // 清空输入框
       if (chatInputRef.value) {
         chatInputRef.value.clearInput();
       }
       scrollToBottom();
     },
-    // (新增) 传入上下文
+    // 传入上下文
     context
   );
 };
 
-// (新增) 处理重新生成
+// 处理重新生成
 const handleRegenerate = async () => {
   if (loading.value || !lastUserMessage.value) {
     console.warn('Cannot regenerate while loading or no last user message.');
@@ -354,7 +354,7 @@ const handleRegenerate = async () => {
   await handleSendMessage(lastUserMessage.value);
 };
 
-// (新增) 处理编辑消息
+// 处理编辑消息
 const handleEditMessage = (editData) => {
   const { messageId, content } = editData;
   
@@ -381,7 +381,7 @@ const handleClearHistory = async () => {
     try {
       await api.clearHistory(currentSession.value);
       store.clearSessionMessages(currentSession.value);
-      await scrollToBottom(); // (新增) 滚动
+      await scrollToBottom(); // 滚动
     } catch (err)
  {
       store.setError(err.response?.data?.error || '清空历史记录失败');
@@ -422,7 +422,7 @@ const handleLogout = () => {
   gap: 0.5rem;
 }
 
-/* (修改) 确保按钮换行 */
+/* 确保按钮换行 */
 .user-actions button {
   flex: 1;
 }
@@ -432,7 +432,7 @@ const handleLogout = () => {
   display: flex;
   flex-direction: column;
   background-color: var(--bg-color);
-  /* (新增) 防止聊天区溢出 */
+  /* 防止聊天区溢出 */
   overflow: hidden;
 }
 
@@ -473,10 +473,10 @@ const handleLogout = () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  /* (修改) 调整位置 */
+  /* 调整位置 */
   padding: 0.5rem 1rem;
   color: var(--text-secondary);
   max-width: 80%;
-  align-self: flex-start; /* (修改) 对齐 AI 消息 */
+  align-self: flex-start; /* 对齐 AI 消息 */
 }
 </style>

@@ -44,12 +44,10 @@ const emits = defineEmits(['send']);
 const message = ref('');
 const textareaRef = ref(null);
 
-// (新增) 暴露方法供父组件调用
 const setContent = (content) => {
   message.value = content || '';
 };
 
-// (新增) 聚焦输入框
 const focus = () => {
   // 使用 ref 获取 textarea 元素并聚焦
   nextTick(() => {
@@ -80,7 +78,6 @@ const addNewline = () => {
   message.value += '\n';
 };
 
-// (新增) 暴露方法
 defineExpose({
   setContent,
   focus,

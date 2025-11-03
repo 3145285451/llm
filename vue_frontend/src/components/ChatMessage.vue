@@ -7,12 +7,10 @@
     </div>
     <div class="message-content">
       
-      <!-- (新增) 点赞提示 -->
       <div v-if="showLikeToast" class="feedback-toast like">
         感谢您的支持！
       </div>
 
-      <!-- (新增) 点踩弹窗 -->
       <div v-if="showDislikeModal" class="feedback-modal-overlay">
         <div class="feedback-modal">
           <p>感谢您的反馈，已提交至工作人员。是否需要重新生成回答？</p>
@@ -60,7 +58,6 @@
       </div>
 
       <div v-if="isUser" class="message-text user-message-text-wrapper">
-        <!-- (新增) 用户消息操作按钮 - 定位到气泡左侧外部 -->
         <div v-if="content" class="user-action-buttons">
           <!-- 复制按钮 -->
           <button
@@ -72,7 +69,7 @@
             <check-icon v-if="userCopied" class="icon-small success" />
             <copy-icon v-else class="icon-small" />
           </button>
-          <!-- (新增) 编辑按钮 -->
+          <!-- 编辑按钮 -->
           <button
             class="user-edit-btn"
             title="编辑并重新生成"
@@ -86,7 +83,7 @@
       <div v-else ref="messageTextRef" class="message-text" v-html="renderedMarkdown">
       </div>
 
-      <!-- (新增) HTML 预览模态框 -->
+      <!-- HTML 预览模态框 -->
       <div v-if="showHtmlPreview" class="html-preview-modal-overlay" @click.self="showHtmlPreview = false">
         <div class="html-preview-modal">
           <div class="html-preview-header">
@@ -109,7 +106,7 @@
         </div>
       </div>
 
-      <!-- (新增) JavaScript 运行结果模态框 -->
+      <!-- JavaScript 运行结果模态框 -->
       <div v-if="showJsResult" class="js-result-modal-overlay" @click.self="showJsResult = false">
         <div class="js-result-modal">
           <div class="js-result-header">
@@ -128,9 +125,9 @@
       </div>
 
       <div class="message-time">
-        <!-- (修改) 将所有按钮包裹在 .message-actions 中 -->
+        <!-- 将所有按钮包裹在 .message-actions 中 -->
         <div class="message-actions">
-          <!-- (新增) 点赞/点踩按钮 -->
+          <!-- 点赞/点踩按钮 -->
           <button
             v-if="!isUser && content"
             class="copy-btn feedback-btn"
@@ -151,7 +148,6 @@
           >
             <thumb-down-icon class="icon-small" />
           </button>
-          <!-- (结束 新增) -->
 
           <button
             v-if="!isUser && content"
@@ -173,7 +169,7 @@
             <refresh-icon class="icon-small" />
           </button>
         </div>
-        <!-- (修改) 将时间戳单独放在 span 中，以便 flex 布局 -->
+        <!-- 将时间戳单独放在 span 中，以便 flex 布局 -->
         <span class="timestamp-text">{{ formatTime(timestamp) }}</span>
       </div>
     </div>
@@ -183,7 +179,7 @@
 <script setup>
 import { computed, defineProps, ref, watch, onUnmounted, defineEmits, onMounted, nextTick } from 'vue';
 import { marked } from 'marked';
-// (修改) 导入新图标
+// 导入新图标
 import { 
   BrainIcon, ChevronDownIcon, ChevronUpIcon, 
   CopyIcon, CheckIcon, RefreshIcon, 
@@ -217,7 +213,7 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  // (新增) 消息ID
+  // 消息ID
   messageId: {
     type: [String, Number],
     default: null
@@ -228,12 +224,12 @@ const emits = defineEmits(['regenerate', 'edit']);
 
 const showthinkProcess = ref(false);
 
-// (新增) 反馈状态
+// 反馈状态
 const feedbackState = ref(null); // null, 'liked', 'disliked'
 const showLikeToast = ref(false);
 const showDislikeModal = ref(false);
 
-// (新增) 点赞处理
+// 点赞处理
 const handleLike = () => {
   if (feedbackState.value) return;
   feedbackState.value = 'liked';
@@ -243,26 +239,24 @@ const handleLike = () => {
   }, 2000); // 2秒后隐藏提示
 };
 
-// (新增) 点踩处理
+// 点踩处理
 const handleDislike = () => {
   if (feedbackState.value) return;
   feedbackState.value = 'disliked';
   showDislikeModal.value = true;
 };
 
-// (新增) 关闭点踩弹窗
+// 关闭点踩弹窗
 const closeDislikeModal = () => {
   showDislikeModal.value = false;
 };
 
-// (新增) 处理点踩后的重新生成
+// 处理点踩后的重新生成
 const handleDislikeRegenerate = () => {
   emits('regenerate');
   showDislikeModal.value = false;
 };
 
-
-// ... (计时器逻辑不变) ...
 const displayTime = ref(props.duration ? props.duration.toFixed(1) : '0.0');
 const timerId = ref(null);
 watch(() => props.thinkProcess, (newThinkProcess, oldThinkProcess) => {
@@ -289,7 +283,6 @@ onUnmounted(() => {
     clearInterval(timerId.value);
   }
 });
-// (*** 计时器逻辑结束 ***)
 
 
 const copied = ref(false);
@@ -303,12 +296,10 @@ const copyContent = async () => {
     }, 2000); 
   } catch (err) {
     console.error('Failed to copy text: ', err);
-    // (修改) 避免使用 alert
-    // alert('复制失败，请重试');
   }
 };
 
-// (新增) 用户消息复制状态
+// 用户消息复制状态
 const userCopied = ref(false);
 const copyUserContent = async () => {
   if (!props.content || userCopied.value) return;
@@ -323,7 +314,7 @@ const copyUserContent = async () => {
   }
 };
 
-// (新增) 处理编辑按钮点击
+// 处理编辑按钮点击
 const handleEdit = () => {
   if (!props.content || !props.messageId) return;
   // 发出编辑事件，传递消息ID和内容
@@ -362,20 +353,20 @@ const formatTime = (date) => {
   return new Date(date).toLocaleTimeString();
 };
 
-// (新增) 代码块复制功能
+// 代码块复制功能
 const messageTextRef = ref(null);
 const thinkContentRef = ref(null);
 const codeBlockCopiedStates = ref(new Map()); // 存储每个代码块的复制状态
 
-// (新增) HTML 预览模态框状态
+// HTML 预览模态框状态
 const showHtmlPreview = ref(false);
 const htmlPreviewContent = ref('');
 
-// (新增) JavaScript 运行结果模态框状态
+// JavaScript 运行结果模态框状态
 const showJsResult = ref(false);
 const jsResultContent = ref('');
 
-// (新增) 为代码块添加复制按钮
+// 为代码块添加复制按钮
 const addCodeBlockCopyButtons = (container) => {
   if (!container) return;
   
@@ -390,7 +381,7 @@ const addCodeBlockCopyButtons = (container) => {
     const codeElement = pre.querySelector('code');
     const codeText = codeElement ? codeElement.innerText || codeElement.textContent : pre.innerText || pre.textContent;
     
-    // (新增) 检测代码块语言
+    // 检测代码块语言
     let isHtml = false;
     let isJavascript = false;
     if (codeElement) {
@@ -401,7 +392,7 @@ const addCodeBlockCopyButtons = (container) => {
                codeElement.classList.contains('language-html') ||
                codeElement.classList.contains('lang-html');
       
-      // (新增) 检测 JavaScript 代码块
+      // 检测 JavaScript 代码块
       isJavascript = codeClasses.includes('language-javascript') ||
                      codeClasses.includes('lang-javascript') ||
                      codeClasses.includes('language-js') ||
@@ -449,7 +440,7 @@ const addCodeBlockCopyButtons = (container) => {
     buttonContainer.appendChild(copyBtn);
     buttonContainer.appendChild(checkIcon);
     
-    // (新增) 如果是 HTML 代码块，添加运行按钮
+    // 如果是 HTML 代码块，添加运行按钮
     if (isHtml) {
       const runBtn = document.createElement('button');
       runBtn.className = 'code-block-run-btn';
@@ -470,7 +461,7 @@ const addCodeBlockCopyButtons = (container) => {
       buttonContainer.appendChild(runBtn);
     }
     
-    // (新增) 如果是 JavaScript 代码块，添加运行按钮
+    // 如果是 JavaScript 代码块，添加运行按钮
     if (isJavascript) {
       const runBtn = document.createElement('button');
       runBtn.className = 'code-block-run-btn';
@@ -519,7 +510,7 @@ const addCodeBlockCopyButtons = (container) => {
   });
 };
 
-// (新增) 监听 Markdown 渲染变化
+// 监听 Markdown 渲染变化
 watch(() => renderedMarkdown.value, () => {
   if (!props.isUser) {
     nextTick(() => {
@@ -528,7 +519,7 @@ watch(() => renderedMarkdown.value, () => {
   }
 }, { immediate: true });
 
-// (新增) 监听思考过程渲染变化
+// 监听思考过程渲染变化
 watch(() => [renderedthinkProcess.value, showthinkProcess.value], () => {
   if (showthinkProcess.value && thinkContentRef.value) {
     nextTick(() => {
@@ -537,7 +528,7 @@ watch(() => [renderedthinkProcess.value, showthinkProcess.value], () => {
   }
 }, { immediate: true });
 
-// (新增) 执行 JavaScript 代码并捕获结果
+// 执行 JavaScript 代码并捕获结果
 const executeJavaScript = (code) => {
   const logs = [];
   let returnValue = undefined;
@@ -659,7 +650,7 @@ const executeJavaScript = (code) => {
   showJsResult.value = true;
 };
 
-// (新增) 组件挂载后也执行一次
+// 组件挂载后也执行一次
 onMounted(() => {
   if (!props.isUser) {
     nextTick(() => {
@@ -673,7 +664,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* (修改) .message 增加 position: relative */
+/* .message 增加 position: relative */
 .message {
   position: relative; 
   display: flex;
@@ -722,7 +713,7 @@ onMounted(() => {
   min-width: 100px;
   padding: 0; 
   border-radius: var(--radius);
-  position: relative; /* (修改) 设为 relative 以便定位弹窗 */
+  position: relative; /* 设为 relative 以便定位弹窗 */
   width: 100%;
   overflow: visible; /* 确保按钮不被裁剪 */
 }
@@ -747,7 +738,7 @@ onMounted(() => {
   white-space: pre-wrap;
 }
 
-/* (新增) 用户消息文本包装器 */
+/* 用户消息文本包装器 */
 .user-message-text-wrapper {
   position: relative;
   padding: 0.75rem 1rem;
@@ -770,7 +761,7 @@ onMounted(() => {
   z-index: 10;
 }
 
-/* (新增) 用户消息复制按钮 */
+/* 用户消息复制按钮 */
 .user-copy-btn,
 .user-edit-btn {
   background: none;
@@ -788,8 +779,6 @@ onMounted(() => {
   background-color: rgba(0, 0, 0, 0.1);
   opacity: 1;
 }
-
-/* ...existing code... */
 
 /* 调整 .message-time 的布局 */
 .message-time {
@@ -810,7 +799,7 @@ onMounted(() => {
   padding: 0; /* 移除内边距 */
 }
 
-/* (新增) 包裹按钮的 flex 容器 */
+/* 包裹按钮的 flex 容器 */
 .message-actions {
   display: flex;
   align-items: center;
@@ -818,7 +807,6 @@ onMounted(() => {
 }
 
 
-/* ... (已有 .think-container 样式) ... */
 .think-container {
   background-color: rgba(0, 0, 0, 0.03); 
   border-bottom: 1px solid var(--border-color);
@@ -894,36 +882,26 @@ onMounted(() => {
   font-weight: 600;
 }
 
-/* (修改) 复制按钮样式 - 调整定位 */
+/* 复制按钮样式 - 调整定位 */
 .copy-btn {
-  position: static; /* (修改) 改为 static，使用 flex 布局 */
-  /* (移除) left, bottom */
+  position: static; /* 改为 static，使用 flex 布局 */
+  /* left, bottom */
   background: none;
   border: none;
   padding: 0.25rem;
   border-radius: var(--radius);
   cursor: pointer;
   color: var(--text-secondary);
-  opacity: 0.6; /* (修改) 默认可见 */
+  opacity: 0.6; /* 默认可见 */
   transition: all 0.2s ease;
   
-  /* (新增) 下面的 :hover, :disabled 样式 */
-}
-
-/* (新增) 反馈按钮特定样式 */
-.feedback-btn {
-  /* (移除) left 定位 */
-}
-
-/* (新增) 重新生成按钮特定样式 */
-.regenerate-btn {
-  /* (移除) left 定位 */
+  /* 下面的 :hover, :disabled 样式 */
 }
 
 
-/* (修改) 悬停效果 */
+/* 悬停效果 */
 .message-content:hover .copy-btn {
-    opacity: 1; /* (修改) 悬停时完全可见 */
+    opacity: 1; /* 悬停时完全可见 */
 }
 
 .copy-btn:hover:not(:disabled) {
@@ -936,7 +914,7 @@ onMounted(() => {
   opacity: 1; 
 }
 
-/* (新增) 反馈按钮激活状态 */
+/* 反馈按钮激活状态 */
 .feedback-btn.liked {
   color: var(--primary-color);
   opacity: 1;
@@ -951,7 +929,7 @@ onMounted(() => {
   opacity: 1;
 }
 .feedback-btn:disabled {
-  cursor: not-allowed; /* (修改) 禁用时不允许点击 */
+  cursor: not-allowed; /* 禁用时不允许点击 */
 }
 
 
@@ -965,11 +943,11 @@ onMounted(() => {
   color: var(--secondary-color); 
 }
 
-/* (新增) 点赞提示 (Toast) */
+/* 点赞提示 (Toast) */
 .feedback-toast {
   position: absolute;
-  bottom: 2.5rem; /* (修改) 放在 message-time 上方 */
-  left: 1rem; /* (修改) 移到左侧 */
+  bottom: 2.5rem; /* 放在 message-time 上方 */
+  left: 1rem; /* 移到左侧 */
   background-color: var(--secondary-color);
   color: white;
   padding: 0.25rem 0.75rem;
@@ -986,13 +964,13 @@ onMounted(() => {
   100% { opacity: 0; transform: translateY(10px); }
 }
 
-/* (修改) 点踩弹窗 (Modal) - 调整定位 */
+/* 点踩弹窗 (Modal) - 调整定位 */
 .feedback-modal-overlay {
   position: absolute;
-  /* (修改) 调整 bottom 和 left 定位 */
+  /* 调整 bottom 和 left 定位 */
   bottom: -10rem; /* 放在 message-time (操作栏) 的上方 */
   left: 0rem;     /* 与左侧内容对齐 */
-  transform: none;  /* (修改) 移除 transform */
+  transform: none;  /* 移除 transform */
   z-index: 20;
   display: block;
   background-color: transparent;
@@ -1007,7 +985,7 @@ onMounted(() => {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   border: 1px solid var(--border-color);
-  width: 300px; /* (修改) 固定宽度 */
+  width: 300px; /* 固定宽度 */
 }
 
 .feedback-modal p {
@@ -1023,7 +1001,7 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
-/* (新增) 用于弹窗内按钮中的小图标 */
+/* 用于弹窗内按钮中的小图标 */
 .icon-small-inline {
   width: 1rem;
   height: 1rem;
@@ -1032,13 +1010,13 @@ onMounted(() => {
   margin-right: 0.25rem;
 }
 
-/* (新增) 代码块包装器样式 */
+/* 代码块包装器样式 */
 :deep(.code-block-wrapper) {
   position: relative;
   margin: 0.5rem 0;
 }
 
-/* (新增) 代码块按钮容器样式 */
+/* 代码块按钮容器样式 */
 :deep(.code-block-buttons) {
   position: absolute;
   top: 0.5rem;
@@ -1048,7 +1026,7 @@ onMounted(() => {
   z-index: 10;
 }
 
-/* (新增) 代码块复制按钮样式 */
+/* 代码块复制按钮样式 */
 :deep(.code-block-copy-btn),
 :deep(.code-block-check-icon),
 :deep(.code-block-run-btn) {
@@ -1096,13 +1074,13 @@ onMounted(() => {
   display: block;
 }
 
-/* (新增) 代码块容器样式调整 */
+/* 代码块容器样式调整 */
 :deep(pre) {
   position: relative;
   margin: 0;
 }
 
-/* (新增) HTML 预览模态框样式 */
+/* HTML 预览模态框样式 */
 .html-preview-modal-overlay {
   position: fixed;
   top: 0;
@@ -1204,7 +1182,7 @@ onMounted(() => {
   display: block;
 }
 
-/* (新增) JavaScript 运行结果模态框样式 */
+/* JavaScript 运行结果模态框样式 */
 .js-result-modal-overlay {
   position: fixed;
   top: 0;

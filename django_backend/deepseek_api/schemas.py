@@ -15,7 +15,7 @@ class LoginOut(Schema):
 class ChatIn(Schema):
     session_id: str = "default_session"
     user_input: str
-    context: Optional[List[Dict[str, str]]] = None  # (新增) 可选的上下文数组，格式: [{"role": "user", "content": "..."}, ...]
+    context: Optional[List[Dict[str, str]]] = None  
 
 
 class ChatOut(Schema):

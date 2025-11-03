@@ -5,9 +5,9 @@ from django.core.cache import cache
 import hashlib
 from .models import APIKey, RateLimit, ConversationSession
 from django.conf import settings
-from topklogsystem import TopKLogSystem  # (修改) 导入
+from topklogsystem import TopKLogSystem
 import logging
-import json  # (新增) 导入 json
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -16,31 +16,27 @@ logger = logging.getLogger(__name__)
 # 避免在每次API调用时都重新加载索引，极大提高效率
 try:
     log_system = TopKLogSystem(
-        log_path="./data/log", 
+        log_path="./data/log",
         llm="deepseek-r1:7b",  # DeepSeek-R1:7B - 基于 Qwen2 架构，支持思考过程 (thinking)
-        embedding_model="bge-large:latest"  # BGE-Large 嵌入模型，用于向量检索
+        embedding_model="bge-large:latest",  # BGE-Large 嵌入模型，用于向量检索
     )
     logger.info("TopKLogSystem 全局初始化成功。使用模型: DeepSeek-R1:7B")
 except Exception as e:
     log_system = None
     logger.error(f"TopKLogSystem 全局初始化失败: {e}")
 
-# ... (rate_lock)
 
-
-def deepseek_r1_api_call(
-    prompt: str, conversation_history: List[Dict] = None
-):  # -> Generator[str, None, None]
+def deepseek_r1_api_call(prompt: str, conversation_history: List[Dict] = None):
     """
     调用 DeepSeek-R1:7B 模型 API 函数 - 流式响应。
-    
+
     模型信息:
     - 模型名称: deepseek-r1:7b
     - 架构: 基于 Qwen2 架构的 DeepSeek-R1 模型
     - 参数量: 7.6B
     - 上下文长度: 131072 tokens
     - 特性: 支持思考过程 (thinking)，使用 <think> 标签
-    
+
     返回: 原始文本块的生成器，包含 <think> 标签的思考过程
     """
 
@@ -49,18 +45,13 @@ def deepseek_r1_api_call(
         yield "错误：日志分析系统未成功初始化。"
         return
 
-    # (修改) 移除 start_time 计时
-
     try:
-        # (修改) 简单地迭代 log_system.query
+        # 简单地迭代 log_system.query
         for chunk in log_system.query(prompt, history=conversation_history):
-            yield chunk  # (修改) yield 原始块
+            yield chunk 
     except Exception as e:
         logger.error(f"deepseek_r1_api_call 流式处理失败: {e}")
         yield f"API 调用失败: {e}"
-
-    # (修改) 移除所有计时和 [METADATA_CHUNK] 逻辑
-    # 流在此处自然结束
 
 
 def create_api_key(username: str) -> str:
@@ -132,8 +123,6 @@ def check_rate_limit(key_str: str) -> bool:
             except APIKey.DoesNotExist:
                 return False
 
-
-# ... (get_or_create_session 不变)
 def get_or_create_session(session_id: str, user: APIKey) -> ConversationSession:
     """
     获取或创建用户的专属会话：

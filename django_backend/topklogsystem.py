@@ -1,6 +1,5 @@
 import os
 
-# chroma 不上传数据
 os.environ["ANONYMIZED_TELEMETRY"] = "false"
 os.environ["DISABLE_TELEMETRY"] = "1"
 os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
@@ -34,10 +33,9 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# (新增) 导入 re
 import re
-from docx import Document as DocxDocument  # 用于处理 .docx 文件
-from PyPDF2 import PdfReader  # 用于处理 .pdf 文件
+from docx import Document as DocxDocument  
+from PyPDF2 import PdfReader 
 
 
 class TopKLogSystem:
@@ -77,17 +75,42 @@ class TopKLogSystem:
     def _build_vectorstore(self):
         vector_store_path = "./data/vector_stores"
         
-        # (修改)检查 vector_stores 文件夹是否存在
+        # 检查 vector_stores 文件夹是否存在
         if os.path.exists(vector_store_path):
-            logger.info(f"向量数据库文件夹已存在，跳过构建: {vector_store_path}")
-            return
+            logger.info(f"向量数据库文件夹已存在，加载现有索引: {vector_store_path}")
+            
+            try:
+                # 1. 连接到现有的 ChromaDB
+                chroma_client = chromadb.PersistentClient(path=vector_store_path)
+                
+                # 2. 获取集合
+                log_collection = chroma_client.get_collection("log_collection")
+                
+                # 3. 实例化 LlamaIndex 的 VectorStore
+                log_vector_store = ChromaVectorStore(chroma_collection=log_collection)
+                
+                # 4.从 VectorStore 加载索引
+                self.log_index = VectorStoreIndex.from_vector_store(
+                    vector_store=log_vector_store
+                )
+                self.vector_store = log_vector_store
+                
+                logger.info("成功从现有数据库加载索引。")
+            
+            except Exception as e:
+                logger.error(f"加载现有向量数据库失败: {e}. 系统将无法进行日志检索。")
+            
+            return # 结束函数
 
+        logger.info(f"向量数据库文件夹不存在，开始构建: {vector_store_path}")
         os.makedirs(vector_store_path, exist_ok=True)
 
         chroma_client = chromadb.PersistentClient(path=vector_store_path)
         log_collection = chroma_client.get_or_create_collection("log_collection")
 
         log_vector_store = ChromaVectorStore(chroma_collection=log_collection)
+        self.vector_store = log_vector_store # 保持一致性
+        
         log_storage_context = StorageContext.from_defaults(
             vector_store=log_vector_store
         )
@@ -103,7 +126,7 @@ class TopKLogSystem:
     
     
     
-    #(修改)该函数用来读取文档,添加可读取文档类型
+    #函数用来读取文档,添加可读取文档类型
     @staticmethod
     def _load_documents(data_path: str) -> List[Document]:
         if not os.path.exists(data_path):
@@ -136,7 +159,7 @@ class TopKLogSystem:
                 logger.error(f"加载文档失败 {file_path}: {e}")
         return documents
 
-    #(添加)各种文件类型的处理函数
+    #各种文件类型的处理函数
     @staticmethod
     def _process_csv(file_path: str) -> List[Document]:
         documents = []
@@ -213,6 +236,7 @@ class TopKLogSystem:
 
     def retrieve_logs(self, query: str, top_k: int = 10) -> List[Dict]:
         if not self.log_index:
+            logger.warning("Log index 未初始化，跳过检索。")
             return []
         try:
             retriever = self.log_index.as_retriever(similarity_top_k=top_k)
@@ -241,7 +265,6 @@ class TopKLogSystem:
         self, query: str, context: Dict, history: List[Dict] = None
     ) -> List:
 
-        # 1. (*** 改进 ***) 强化 System 角色，增加对历史的感知要求
         system_message = SystemMessagePromptTemplate.from_template(
             """
             你是一个多任务SRE助手。你的首要任务是 **[判断意图]**，然后根据意图选择正确的 **[响应模式]**。
@@ -262,7 +285,7 @@ class TopKLogSystem:
             """
         )
 
-        # 2. 准备日志上下文 (不变)
+        # 2. 准备日志上下文
         log_context_str = "## [可用工具 (SRE模式专用)] 相关日志参考:\n"
         if not context:
             log_context_str += "（未检索到相关历史日志，仅在SRE模式下报告此信息）\n"
@@ -270,7 +293,6 @@ class TopKLogSystem:
             for i, log in enumerate(context, 1):
                 log_context_str += f"日志 {i} : {log['content']}\n"
 
-        # 3. (*** 核心改进 ***) 修改 User 模板，强制 LLM 分析历史对话
         user_message_template = HumanMessagePromptTemplate.from_template(
             """
             ## [可用工具 (SRE模式专用)]
@@ -316,7 +338,6 @@ class TopKLogSystem:
             """
         )
 
-        # 4. 格式化输入 (不变)
         prompt_template = ChatPromptTemplate.from_messages(
             [
                 system_message,
@@ -331,8 +352,6 @@ class TopKLogSystem:
                 if msg["role"] == "user":
                     formatted_history.append(HumanMessage(content=msg["content"]))
                 elif msg["role"] == "assistant":
-                    # (*** 关键修复 ***)
-                    # 确保传入历史的 AI 回复也是清理过的，避免污染上下文
                     clean_content = re.sub(
                         r"<think>.*?</think>\s*",
                         "",
@@ -341,7 +360,6 @@ class TopKLogSystem:
                     )
                     formatted_history.append(AIMessage(content=clean_content.strip()))
                 else:
-                    # 兼容其他可能的角色，尽管这里可能不需要
                     formatted_history.append(AIMessage(content=msg["content"]))
 
         return prompt_template.format_prompt(
@@ -390,11 +408,9 @@ if __name__ == "__main__":
     query3 = "是连接池耗尽的问题，如何解决？"
     history_example.append({"role": "user", "content": query2})
     history_example.append({"role": "assistant", "content": full_response_2})
-    # result3 = system.query(query3, history=history_example) # 这行是多余的
     print("\n查询3 (测试日志分析):", query3)
     print("响应3 (流式):")
     full_response_3 = ""
-    # (*** 修复 ***) 修复了变量名
     for chunk in system.query(query3, history=history_example):
         print(chunk, end="", flush=True)
         full_response_3 += chunk
@@ -403,9 +419,10 @@ if __name__ == "__main__":
     query4 = "你好"
     history_example.append({"role": "user", "content": query3})
     history_example.append({"role": "assistant", "content": full_response_3})
-    # result4 = system.query(query4, history=history_example) # 这行是多余的
     print("\n查询4 (测试常规对话):", query4)
     print("响应4 (流式):")
     for chunk in system.query(query4, history=history_example):
         print(chunk, end="", flush=True)
     print("\n--- 流结束 ---")
+
+

@@ -1,24 +1,16 @@
 from ninja import NinjaAPI, Router
-from django.http import (
-    HttpRequest,
-    StreamingHttpResponse,
-)  # (新增) 导入 StreamingHttpResponse
-from typing import Optional, Generator  # (新增) 导入 Generator
+from django.http import HttpRequest, StreamingHttpResponse
+from typing import Optional, Generator 
 from . import services
 from django.conf import settings
 from .schemas import LoginIn, LoginOut, ChatIn, ChatOut, HistoryOut, ErrorResponse
 from .models import APIKey
-from .services import (
-    get_or_create_session,
-    deepseek_r1_api_call,
-    # (移除) get_cached_reply, (流式响应不能缓存)
-    # (移除) set_cached_reply, (流式响应不能缓存)
-)
+from .services import get_or_create_session, deepseek_r1_api_call
 from datetime import datetime
 import logging
-import re  # (修复) 导入 re
-import time  # (新增) 导入 time
-import json  # (新增) 导入 json
+import re
+import time
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +38,7 @@ router = Router(auth=api_key_auth)
 def clean_llm_reply(reply: str) -> str:
     """
     从 DeepSeek-R1:7B 的原始回复中移除 <think>...</think> 标签块
-    
+
     DeepSeek-R1 模型的思考过程被包裹在 <think> 标签中，
     此函数用于清理这些思考过程，只保留最终的用户可见回复。
     """
@@ -66,9 +58,8 @@ def login(request, data: LoginIn):
     return {"api_key": key, "expiry": settings.TOKEN_EXPIRY_SECONDS}
 
 
-@router.post("/chat")  # (修改) 移除 response 定义
+@router.post("/chat")  
 def chat(request, data: ChatIn):
-    # (修改) 使用 SSE 格式 (text/event-stream)
     if not request.auth:
         return StreamingHttpResponse(
             "data: "
@@ -91,61 +82,52 @@ def chat(request, data: ChatIn):
 
     user = request.auth
     session = get_or_create_session(session_id, user)
-    
-    # (新增) 步骤二：检查前端是否提供了 context
+
     if data.context and len(data.context) > 0:
         # 情况A：前端提供了 context，使用它作为对话历史
-        logger.info(f"使用前端提供的 context (会话: {session_id}, 上下文长度: {len(data.context)})")
+        logger.info(
+            f"使用前端提供的 context (会话: {session_id}, 上下文长度: {len(data.context)})"
+        )
         history_for_llm = data.context
         is_regeneration = False  # 前端已经处理了截断，不需要重新生成检测
     else:
         # 情况B：前端没有提供 context，回退到从数据库加载历史
-        # (*** 修复 ***) conversation_history 是从数据库获取的完整历史
         conversation_history = session.get_conversation_history()
         print(conversation_history)
-        # (*** 核心修复：处理重新生成 ***)
         history_for_llm = conversation_history
         is_regeneration = False
 
-        if (len(conversation_history) >= 2 and
-            conversation_history[-1]["role"] == "assistant" and
-            conversation_history[-2]["role"] == "user" and
-            conversation_history[-2]["content"] == user_input):
-            
-            # 历史是 [..., (Q, A_old)]。用户输入是 Q。
-            # LLM 应该看到 [..., ] (不包括 Q 和 A_old)，然后接收 Q。
+        if (
+            len(conversation_history) >= 2
+            and conversation_history[-1]["role"] == "assistant"
+            and conversation_history[-2]["role"] == "user"
+            and conversation_history[-2]["content"] == user_input
+        ):
+
             logger.info(f"检测到重新生成 (会话: {session_id})")
-            history_for_llm = conversation_history[:-2] # 移除 Q_last 和 A_last
+            history_for_llm = conversation_history[:-2]
             is_regeneration = True
-        
-        elif (len(conversation_history) >= 1 and
-              conversation_history[-1]["role"] == "user" and
-              conversation_history[-1]["content"] == user_input):
-              
-            # 历史是 [..., Q_last]。用户输入是 Q_last。
-            # (AI 回复失败，数据库中只有 Q_last)
-            # LLM 应该看到 [..., ]，然后接收 Q_last。
+
+        elif (
+            len(conversation_history) >= 1
+            and conversation_history[-1]["role"] == "user"
+            and conversation_history[-1]["content"] == user_input
+        ):
+
             logger.info(f"检测到对失败消息的重新生成 (会话: {session_id})")
-            history_for_llm = conversation_history[:-1] # 移除 Q_last
+            history_for_llm = conversation_history[:-1]  # 移除 Q_last
             is_regeneration = True
-        # (*** 结束修复 ***)
 
-
-    # (新增) 定义流式生成器 (后端解析)
     def stream_generator() -> Generator[str, None, None]:
         buffer = ""
         is_thinking = False
         full_clean_reply = ""  # 用于最后存入数据库
-        
+
         start_time = time.time()  # 在开始迭代前计时
         think_time_sent = False  # 确保元数据只发送一次
 
         try:
-            # (修改) 迭代 services.py 中的流，传入截断后的 history_for_llm
             for raw_chunk in deepseek_r1_api_call(user_input, history_for_llm):
-                
-                # (*** 核心修改 2 ***)
-                # ... (流式解析逻辑不变) ...
                 buffer += raw_chunk
 
                 while True:
@@ -179,7 +161,7 @@ def chat(request, data: ChatIn):
                                     {"type": "metadata", "duration": duration}
                                 ) + "\n\n"
                                 think_time_sent = True
-                            
+
                             think_chunk = buffer[:end_index]
                             if think_chunk:
                                 yield "data: " + json.dumps(
@@ -199,21 +181,18 @@ def chat(request, data: ChatIn):
 
             # (循环结束) 处理剩余缓冲区
             if is_thinking and buffer:
-                yield "data: " + json.dumps(
-                    {"type": "think", "chunk": buffer}
-                ) + "\n\n"
+                yield "data: " + json.dumps({"type": "think", "chunk": buffer}) + "\n\n"
             elif buffer:
                 yield "data: " + json.dumps(
                     {"type": "content", "chunk": buffer}
                 ) + "\n\n"
                 full_clean_reply += buffer
 
-            # (新增) 流全部结束后，更新数据库
+            # 流全部结束后，更新数据库
             try:
-                # (修复) 确保只保存清理后的回复
                 final_save = clean_llm_reply(full_clean_reply).strip()
-                
-                # (新增) 检查是否使用了前端提供的 context（编辑模式）
+
+                # 检查是否使用了前端提供的 context（编辑模式）
                 if data.context and len(data.context) > 0:
                     # 编辑模式：前端已经截断了历史，我们需要重写整个上下文
                     # 格式化为 "\n用户：{q}\n回复：{a}\n" 格式
@@ -224,42 +203,40 @@ def chat(request, data: ChatIn):
                             new_context_str += f"\n用户：{msg['content']}\n"
                         elif msg["role"] == "assistant":
                             new_context_str += f"\n回复：{msg['content']}\n"
-                    
+
                     # 添加当前轮次的新回复（编辑后的提问 + 新的 AI 回答）
                     new_context_str += f"\n用户：{user_input}\n"
                     new_context_str += f"\n回复：{final_save}\n"
-                    
+
                     # 重写数据库上下文
                     session.context = new_context_str.strip()
                     session.save()
-                    logger.info(f"编辑模式：会话 {session_id} 已更新 (用户: {user.user})")
-                
-                # (*** 核心修复：防止重新生成时重复添加 ***)
+                    logger.info(
+                        f"编辑模式：会话 {session_id} 已更新 (用户: {user.user})"
+                    )
+
                 elif is_regeneration:
-                    # 如果是重新生成（但没有使用前端 context），我们必须 *重写* 数据库上下文
-                    # (假设 context 格式为 "\n用户：{q}\n回复：{a}\n")
-                    
+
                     new_context_str = ""
                     # 重新组合截断的历史
-                    for msg in history_for_llm: 
+                    for msg in history_for_llm:
                         if msg["role"] == "user":
                             new_context_str += f"\n用户：{msg['content']}\n"
                         elif msg["role"] == "assistant":
                             new_context_str += f"\n回复：{msg['content']}\n"
-                    
+
                     # 添加当前轮次的新回复
                     new_context_str += f"\n用户：{user_input}\n"
                     new_context_str += f"\n回复：{final_save}\n"
-                    
+
                     # (假设 session.context 是可写的)
                     session.context = new_context_str.strip()
                     session.save()
-                    
+
                 else:
                     # 正常追加 (调用 models.py 中的方法)
                     session.update_context(user_input, final_save)
-                
-                # (*** 结束修复 ***)
+
 
                 logger.info(f"会话 {session_id} 已更新 (用户: {user.user})")
             except Exception as e:
@@ -271,13 +248,14 @@ def chat(request, data: ChatIn):
                 {"type": "error", "chunk": f"流处理失败: {e}"}
             ) + "\n\n"
 
-    # (修改) 返回 StreamingHttpResponse
+    #返回 StreamingHttpResponse
     response = StreamingHttpResponse(
         stream_generator(), content_type="text/event-stream"  # (修改) SSE
     )
-    # (新增) 禁用 Nginx 缓冲
+    # 禁用 Nginx 缓冲
     response["X-Accel-Buffering"] = "no"
     return response
+
 
 @router.get("/history", response={200: HistoryOut})
 def history(request, session_id: str = "default_session"):
