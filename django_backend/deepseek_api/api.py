@@ -1,6 +1,6 @@
 from ninja import NinjaAPI, Router
 from django.http import HttpRequest, StreamingHttpResponse
-from typing import Optional, Generator 
+from typing import Optional, Generator
 from . import services
 from django.conf import settings
 from .schemas import LoginIn, LoginOut, ChatIn, ChatOut, HistoryOut, ErrorResponse
@@ -58,7 +58,7 @@ def login(request, data: LoginIn):
     return {"api_key": key, "expiry": settings.TOKEN_EXPIRY_SECONDS}
 
 
-@router.post("/chat")  
+@router.post("/chat")
 def chat(request, data: ChatIn):
     if not request.auth:
         return StreamingHttpResponse(
@@ -93,7 +93,7 @@ def chat(request, data: ChatIn):
     else:
         # 情况B：前端没有提供 context，回退到从数据库加载历史
         conversation_history = session.get_conversation_history()
-        print(conversation_history)
+
         history_for_llm = conversation_history
         is_regeneration = False
 
@@ -125,7 +125,7 @@ def chat(request, data: ChatIn):
 
         start_time = time.time()  # 在开始迭代前计时
         think_time_sent = False  # 确保元数据只发送一次
-
+        print("History\n", history_for_llm)
         try:
             for raw_chunk in deepseek_r1_api_call(user_input, history_for_llm):
                 buffer += raw_chunk
@@ -237,7 +237,6 @@ def chat(request, data: ChatIn):
                     # 正常追加 (调用 models.py 中的方法)
                     session.update_context(user_input, final_save)
 
-
                 logger.info(f"会话 {session_id} 已更新 (用户: {user.user})")
             except Exception as e:
                 logger.error(f"数据库上下文更新失败: {e}")
@@ -248,7 +247,7 @@ def chat(request, data: ChatIn):
                 {"type": "error", "chunk": f"流处理失败: {e}"}
             ) + "\n\n"
 
-    #返回 StreamingHttpResponse
+    # 返回 StreamingHttpResponse
     response = StreamingHttpResponse(
         stream_generator(), content_type="text/event-stream"  # (修改) SSE
     )
