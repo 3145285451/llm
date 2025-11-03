@@ -719,6 +719,7 @@ onMounted(() => {
 }
 
 .message-content {
+  min-width: 100px;
   padding: 0; 
   border-radius: var(--radius);
   position: relative; /* (修改) 设为 relative 以便定位弹窗 */
@@ -758,17 +759,14 @@ onMounted(() => {
   word-wrap: break-word;
 }
 
-/* (新增) 用户消息操作按钮容器 - 定位到气泡正下方 */
+/* 用户消息操作按钮容器 - 定位到气泡左下方 */
 .user-action-buttons {
   position: absolute;
-  top: 100%; /* 关键：将容器的顶部移动到父容器的底部 */
-  left: 0.5rem; /* 关键：从左侧缩进，与气泡内的文本对齐 */
-  margin-top: 10px; /* 关键：在气泡和按钮之间创建清晰的垂直间隙 */
-  
+  bottom: -5rem; /* 距离消息框底部 */
+  left: -1rem; /* 距离消息框左侧 */
   display: flex;
-  flex-direction: row; /* 关键：改为水平排列 */
-  gap: 0.5rem; /* 关键：在两个按钮之间创建水平间距 */
-  
+  flex-direction: row; /* 按钮水平排列 */
+  gap: 0.3rem; /* 按钮之间的间距 */
   z-index: 10;
 }
 
@@ -791,22 +789,25 @@ onMounted(() => {
   opacity: 1;
 }
 
-/* (修改) .message-time 布局 */
+/* ...existing code... */
+
+/* 调整 .message-time 的布局 */
 .message-time {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  /* (移除) text-align: right; */
-  padding: 0 1rem 0.5rem; 
   display: flex;
-  justify-content: space-between; /* (修改) 改为 space-between */
+  flex-wrap: wrap; /* 允许按钮和时间戳换行 */
+  justify-content: space-between;
   align-items: center;
-  /* (移除) gap: 0.5rem; */
+  gap: 0.5rem; /* 增加按钮和时间戳之间的间距 */
+  padding: 0 1rem 0.5rem;
 }
 
+/* 用户消息的时间布局 */
 .user-message .message-time {
-  padding: 0; 
-  display: block; 
-  text-align: right; /* (恢复) 用户消息时间戳在右侧 */
+  justify-content: flex-end; /* 按钮和时间戳靠右 */
+  flex-wrap: nowrap; /* 禁止换行 */
+  gap: 0.5rem;
+  margin-top: 1rem; /* 与消息框的间距 */
+  padding: 0; /* 移除内边距 */
 }
 
 /* (新增) 包裹按钮的 flex 容器 */
