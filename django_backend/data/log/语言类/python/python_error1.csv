@@ -1,0 +1,114 @@
+错误类型,错误名称,错误描述,常见原因,示例代码,修正建议
+语法错误,SyntaxError,invalid syntax,拼写错误、缺少冒号、括号不匹配,if x == 1 print(x),if x == 1: print(x)
+语法错误,SyntaxError,invalid syntax,使用了Python 3不支持的语法,print "hello",print("hello")
+语法错误,SyntaxError,invalid syntax,在函数定义中忘记加冒号,def foo() print("hi"),def foo(): print("hi")
+语法错误,SyntaxError,invalid syntax,在if/for/while后忘记加冒号,if x > 0 print(x),if x > 0: print(x)
+语法错误,SyntaxError,invalid syntax,使用了中文符号,if x > 0：print(x),if x > 0: print(x)
+缩进错误,IndentationError,unexpected indent,缩进不一致,def f():\nprint("hi"),def f():\n    print("hi")
+缩进错误,IndentationError,expected an indented block,缺少缩进,if True:\nprint("hi"),if True:\n    print("hi")
+缩进错误,IndentationError,unindent does not match any outer indentation level,缩进层级混乱,混合使用tab和空格,统一使用空格（4个）
+类型错误,TypeError,unsupported operand type(s) for +: 'int' and 'str',类型不匹配,"""hello"" + 5",str(5) + "hello"
+类型错误,TypeError,can't multiply sequence by non-int of type 'float',序列与非整数相乘,"[1,2]*1.5",使用循环或列表推导
+类型错误,TypeError,object is not callable,将变量名当作函数使用,list = [1,2]; list(),避免使用内置名作为变量名
+类型错误,TypeError,unsupported operand type(s) for -: 'str' and 'str',字符串相减,"""abc"" - ""a""",使用replace或正则
+类型错误,TypeError,list indices must be integers or slices not str,用字符串索引列表,my_list["key"],使用字典或整数索引
+类型错误,TypeError,'int' object is not iterable,对整数进行迭代,for i in 5:,使用range(5)
+类型错误,TypeError,unsupported operand type(s) for **: 'str' and 'int',字符串幂运算,"""2""**3",int("2")**3
+类型错误,TypeError,can't convert 'int' object to str implicitly,隐式类型转换,"""Score: "" + 100","Score: " + str(100)"
+类型错误,TypeError,object is not subscriptable,对不可下标对象使用下标,5[0],使用列表或字符串
+名称错误,NameError,name 'x' is not defined,变量未定义,print(x),先定义x = 10
+名称错误,NameError,free variable 'x' referenced before assignment in enclosing scope,在嵌套函数中引用未赋值变量,def outer():\n    def inner():\n        print(x)\n    x = 1\n    inner(),在inner中声明nonlocal x
+属性错误,AttributeError,'list' object has no attribute 'add',使用不存在的属性,my_list.add(3),使用append或extend
+属性错误,AttributeError,'str' object has no attribute 'append',字符串调用列表方法,my_str.append("a"),使用+或join
+属性错误,AttributeError,module 'os' has no attribute 'pathh',拼写错误,os.pathh,os.path
+索引错误,IndexError,list index out of range,访问越界,my_list = [1]; my_list[1],检查长度或使用try
+索引错误,IndexError,string index out of range,字符串越界,my_str = "hi"; my_str[5],检查长度
+键错误,KeyError,'name',访问不存在的字典键,my_dict["name"],使用get或先判断
+键错误,KeyError,0,用整数访问字典,my_dict[0],确认键类型
+值错误,ValueError,invalid literal for int() with base 10: 'abc',非法类型转换,int("abc"),先判断或try
+值错误,ValueError,too many values to unpack,解包数量不匹配,a,b = [1,2,3],使用*rest
+值错误,ValueError,not enough values to unpack,解包不足,a,b,c = [1,2],检查数据或默认值
+除零错误,ZeroDivisionError,division by zero,除数为0,1/0,判断分母是否为0
+模块错误,ModuleNotFoundError,No module named 'numpy',未安装模块,import numpy,安装：pip install numpy
+导入错误,ImportError,cannot import name 'foo' from 'bar',循环导入或拼写错误,from bar import foo,检查模块结构
+文件错误,FileNotFoundError,[Errno 2] No such file or directory: 'data.txt',路径错误或文件不存在,open("data.txt"),确认路径或使用with
+权限错误,PermissionError,[Errno 13] Permission denied,文件被占用或无权限,open("C:/pagefile.sys"),以管理员身份或换路径
+编码错误,UnicodeDecodeError,'utf-8' codec can't decode byte 0xff,编码不匹配,open("file.txt", encoding="utf-8"),使用正确编码如gbk
+编码错误,UnicodeEncodeError,'ascii' codec can't encode character,写入编码错误,open("out.txt", "w", encoding="ascii").write("你好"),使用utf-8
+运行时错误,RuntimeError,generator raised StopIteration,生成器抛出StopIteration,def g():\n    yield 1\n    raise StopIteration\nnext(g()),使用return
+运行时错误,RecursionError,maximum recursion depth exceeded,递归无终止,def f(): f(),添加终止条件
+内存错误,MemoryError,内存不足,创建超大列表,[0]*10**10,使用生成器或分块
+断言错误,AssertionError,断言失败,条件不成立,assert x > 0,检查逻辑或修改条件
+键盘中断,KeyboardInterrupt,用户中断,Ctrl+C被按下,运行中按Ctrl+C,捕获KeyboardInterrupt
+系统退出,SystemExit,sys.exit()被调用,程序主动退出,sys.exit(),无需处理
+类型警告,TypeWarning,（非致命）类型不匹配,使用+连接str与int,"""Age: "" + 18",使用f-string
+浮点警告,RuntimeWarning,invalid value encountered in double_scalars,数学错误如log(-1),import numpy as np; np.log(-1),检查输入
+未绑定错误,UnboundLocalError,local variable 'x' referenced before assignment,在函数内引用外部变量,x = 1\ndef f():\n    print(x)\n    x = 2,使用global或传参
+作用域错误,ScopeError,（自定义）变量作用域混乱,在循环内定义函数并引用循环变量,funcs = []\nfor i in range(3):\n    funcs.append(lambda: i)\nfuncs[0](),使用默认参数lambda i=i: i
+逻辑错误,LogicError,条件判断始终为True,使用=而非==,if x = 1:,改为if x == 1:
+逻辑错误,LogicError,死循环,循环条件恒真,while True: pass,添加break
+逻辑错误,LogicError,列表拷贝错误,使用=而非copy,list2 = list1,使用list2 = list1.copy()
+逻辑错误,LogicError,字典更新失败,使用=而非update,dict2 = dict1,使用dict2.update(dict1)
+逻辑错误,LogicError,集合去重失败,列表未转换,set([1,1,2]),先转列表
+逻辑错误,LogicError,函数默认参数可变,使用[]作为默认值,def f(lst=[]): lst.append(1),使用None并判断
+逻辑错误,LogicError,浮点比较错误,直接比较浮点,0.1 + 0.2 == 0.3,使用math.isclose
+逻辑错误,LogicError,字符串拼接低效,使用+循环,s = ""; for x in lst: s += str(x),使用"".join
+逻辑错误,LogicError,列表推导副作用,在推导中修改外部变量,[func(x) for x in lst],避免副作用
+逻辑错误,LogicError,字典键覆盖,使用相同键,data = {"a":1, "a":2},检查键名
+逻辑错误,LogicError,时间比较错误,使用字符串比较时间,"12:00" < "2:00",转为datetime
+逻辑错误,LogicError,文件读取未关闭,未使用with,f = open(); f.read(),使用with open()
+逻辑错误,LogicError,异常被吞噬,except: pass,记录日志或处理
+逻辑错误,LogicError,循环变量泄露,for i in range(5): pass; print(i),使用函数封装
+逻辑错误,LogicError,lambda嵌套错误,在lambda中使用循环,lambda: [i for i in range(3)],避免复杂lambda
+逻辑错误,LogicError,正则贪婪匹配,使用.*,re.match("a.*b", "axxxbxxxb"),使用.*?或非贪婪
+逻辑错误,LogicError,JSON序列化失败,传入不可序列化对象,json.dumps(set()),转为list
+逻辑错误,LogicError,日期格式化错误,使用%Y-%m-%d,%m/%d/%Y,确认格式
+逻辑错误,LogicError,时区错误,使用本地时间存储,datetime.now(),使用UTC
+逻辑错误,LogicError,URL拼接错误,手动拼接,url = base + "/" + path,使用urllib.parse.urljoin
+逻辑错误,LogicError,SQL注入风险,拼接SQL,query = "SELECT * FROM user WHERE name = '" + name + "'",使用参数化查询
+逻辑错误,LogicError,路径穿越漏洞,未检查路径,open(user_input),检查..或限制目录
+逻辑错误,LogicError,缓存未失效,使用可变键,cache[tuple(list)],转为tuple
+逻辑错误,LogicError,日志未分级,全部print,print("error"),使用logging
+逻辑错误,LogicError,配置硬编码,写死路径,DATA_PATH = "/tmp/data",使用环境变量
+逻辑错误,LogicError,单元测试未覆盖,无测试,def add(a,b): return a+b,编写test_add
+逻辑错误,LogicError,性能瓶颈,重复计算,for i in range(n): len(lst),提前计算
+逻辑错误,LogicError,内存泄漏,循环引用,class A: pass\na = A(); a.b = A(); a.b.a = a,使用weakref
+逻辑错误,LogicError,并发竞争,共享变量未加锁,counter += 1,使用Lock
+逻辑错误,LogicError,线程阻塞,IO未异步,requests.get(),使用aiohttp
+逻辑错误,LogicError,进程泄露,未join,Process.start(),p.join()
+逻辑错误,LogicError,信号未处理,未捕获KeyboardInterrupt,while True: pass,try: except KeyboardInterrupt:
+逻辑错误,LogicError,资源未释放,未关闭数据库连接,conn = sqlite3.connect(),使用with或close()
+逻辑错误,LogicError,硬编码密码,代码中写密码,password = "123456",使用环境变量或密钥管理
+逻辑错误,LogicError,日志泄露敏感信息,记录密码,logging.info(password),脱敏
+逻辑错误,LogicError,API未限速,无速率限制,for i in range(1000): requests.get(),使用time.sleep或限速库
+逻辑错误,LogicError,重试无退避,立即重试,while True: try: req() except: pass,使用exponential backoff
+逻辑错误,LogicError,配置未验证,传入无效值,int("abc"),先验证
+逻辑错误,LogicError,版本不兼容,使用已废弃API,time.clock(),使用time.perf_counter()
+逻辑错误,LogicError,平台路径错误,使用反斜杠,path = "data\\file",使用os.path.join
+逻辑错误,LogicError,未处理空值,传入None,len(None),先判断
+逻辑错误,LogicError,排序不稳定,依赖字典顺序,sorted(dict),使用OrderedDict
+逻辑错误,LogicError,哈希冲突,自定义__hash__不合理,class A: __hash__ = lambda self: 1,合理设计
+逻辑错误,LogicError,迭代器耗尽,重复遍历,iter = iter(lst); list(iter); list(iter),重新创建
+逻辑错误,LogicError,生成器挂起未恢复,send(None)后未继续,g.send(1),理解生成器协议
+逻辑错误,LogicError,装饰器顺序错误,@lru_cache @staticmethod,调换顺序
+逻辑错误,LogicError,元类冲突,多重继承元类不同,class A(type, metaclass=ABC): pass,统一元类
+逻辑错误,LogicError,描述器未实现协议,仅__get__,class D: __get__ = lambda self,obj,objtype: 1,实现__set__如需
+逻辑错误,LogicError,弱引用回调异常,回调中抛出异常,weakref.ref(obj, lambda _: 1/0),捕获异常
+逻辑错误,LogicError,信号处理器重载,多次注册,signal.signal(signal.SIGINT, handler),仅注册一次
+逻辑错误,LogicError,临时文件未清理,未delete,tmp = tempfile.NamedTemporaryFile(),使用with或delete=True
+逻辑错误,LogicError,子进程输出未读取,wait()导致阻塞,p.wait(),先读取stdout
+逻辑错误,LogicError,虚拟环境未激活,使用系统包,import numpy,激活venv
+逻辑错误,LogicError,依赖未锁定,版本漂移,requests>=2.0,使用requirements.txt固定
+逻辑错误,LogicError,打包遗漏资源,未包含数据文件,setup.py未指定package_data,使用MANIFEST.in
+逻辑错误,LogicError,入口点未注册,命令行不可用,setup.py未写console_scripts,添加entry_points
+逻辑错误,LogicError,文档未同步,代码与docstring不符,def add(a,b): return a-b,更新docstring
+逻辑错误,LogicError,类型注解缺失,难以静态检查,def f(x): return x+1,添加-> int
+逻辑错误,LogicError,Protocol未实现,结构子类型失败,class A: pass; def f(x: HasClose): pass,实现close方法
+逻辑错误,LogicError,泛型未参数化,使用原生list,def f() -> list:,使用list[int]
+逻辑错误,LogicError,异步未await,协程未执行,async def f(): pass; f(),使用await f()
+逻辑错误,LogicError,事件循环未关闭,asyncio未清理,loop = asyncio.get_event_loop(),使用asyncio.run
+逻辑错误,LogicError,SSL验证禁用,verify=False,requests.get(url, verify=False),使用证书
+逻辑错误,LogicError,时区库混用,datetime与pendulum混用,import pendulum; datetime.now(),统一库
+逻辑错误,LogicError,Decimal未上下文,精度丢失,Decimal(1)/Decimal(3),设置context
+逻辑错误,LogicError,UUID重复,使用相同种子,uuid.uuid1(),使用uuid4
+逻辑错误,LogicError,枚举比较错误,使用is,Color.RED is Color.BLUE,使用==

@@ -109,3 +109,5 @@
             documents.append(Document(text=content))
         return documents
 ```
+
+### 2.添加了知识库
