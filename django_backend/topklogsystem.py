@@ -1,4 +1,5 @@
 import os
+import csv
 
 os.environ["ANONYMIZED_TELEMETRY"] = "false"
 os.environ["DISABLE_TELEMETRY"] = "1"
@@ -34,14 +35,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 import re
-from docx import Document as DocxDocument  
-from PyPDF2 import PdfReader 
+from docx import Document as DocxDocument
+from PyPDF2 import PdfReader
 
 
 class TopKLogSystem:
     """
     基于 DeepSeek-R1:7B 的日志分析系统
-    
+
     使用模型:
     - LLM: DeepSeek-R1:7B (deepseek-r1:7b)
       * 架构: 基于 Qwen2 架构的 DeepSeek-R1 模型
@@ -52,6 +53,7 @@ class TopKLogSystem:
     - Embedding: BGE-Large (bge-large:latest)
       * 用于向量检索和文档嵌入
     """
+
     def __init__(
         self,
         log_path: str,
@@ -74,33 +76,33 @@ class TopKLogSystem:
     # 构建向量数据库的核心函数
     def _build_vectorstore(self):
         vector_store_path = "./data/vector_stores"
-        
+
         # 检查 vector_stores 文件夹是否存在
         if os.path.exists(vector_store_path):
             logger.info(f"向量数据库文件夹已存在，加载现有索引: {vector_store_path}")
-            
+
             try:
                 # 1. 连接到现有的 ChromaDB
                 chroma_client = chromadb.PersistentClient(path=vector_store_path)
-                
+
                 # 2. 获取集合
                 log_collection = chroma_client.get_collection("log_collection")
-                
+
                 # 3. 实例化 LlamaIndex 的 VectorStore
                 log_vector_store = ChromaVectorStore(chroma_collection=log_collection)
-                
+
                 # 4.从 VectorStore 加载索引
                 self.log_index = VectorStoreIndex.from_vector_store(
                     vector_store=log_vector_store
                 )
                 self.vector_store = log_vector_store
-                
+
                 logger.info("成功从现有数据库加载索引。")
-            
+
             except Exception as e:
                 logger.error(f"加载现有向量数据库失败: {e}. 系统将无法进行日志检索。")
-            
-            return # 结束函数
+
+            return  # 结束函数
 
         logger.info(f"向量数据库文件夹不存在，开始构建: {vector_store_path}")
         os.makedirs(vector_store_path, exist_ok=True)
@@ -109,8 +111,8 @@ class TopKLogSystem:
         log_collection = chroma_client.get_or_create_collection("log_collection")
 
         log_vector_store = ChromaVectorStore(chroma_collection=log_collection)
-        self.vector_store = log_vector_store # 保持一致性
-        
+        self.vector_store = log_vector_store  # 保持一致性
+
         log_storage_context = StorageContext.from_defaults(
             vector_store=log_vector_store
         )
@@ -123,10 +125,8 @@ class TopKLogSystem:
             logger.info(f"日志库索引构建完成，共 {len(log_documents)} 条日志")
         else:
             logger.info("未加载到任何日志文档，向量数据库未更新")
-    
-    
-    
-    #函数用来读取文档,添加可读取文档类型,并支持遍历子文件夹下的文件
+
+    # 函数用来读取文档,添加可读取文档类型,并支持遍历子文件夹下的文件
     @staticmethod
     def _load_documents(data_path: str) -> List[Document]:
         """
@@ -140,7 +140,19 @@ class TopKLogSystem:
         for root, dirs, files in os.walk(data_path):
             for file in files:
                 ext = os.path.splitext(file)[1]
-                if ext not in [".txt", ".md", ".json", ".jsonl", ".csv", ".log", ".xml", ".yaml", ".yml", ".docx", ".pdf"]:
+                if ext not in [
+                    ".txt",
+                    ".md",
+                    ".json",
+                    ".jsonl",
+                    ".csv",
+                    ".log",
+                    ".xml",
+                    ".yaml",
+                    ".yml",
+                    ".docx",
+                    ".pdf",
+                ]:
                     continue
                 file_path = os.path.join(root, file)
                 try:
@@ -164,12 +176,12 @@ class TopKLogSystem:
                     logger.error(f"加载文档失败 {file_path}: {e}")
         return documents
 
-    #各种文件类型的处理函数
+    # 各种文件类型的处理函数
     @staticmethod
     def _process_csv(file_path: str) -> List[Document]:
         documents = []
         chunk_size = 1000
-        for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+        for chunk in pd.read_csv(file_path, chunksize=chunk_size, on_bad_lines="skip"):
             for row in chunk.itertuples(index=False):
                 content = str(row).replace("Pandas", " ")
                 documents.append(Document(text=content))
@@ -185,7 +197,9 @@ class TopKLogSystem:
             elif ext == ".jsonl":
                 for line in f:
                     data = json.loads(line.strip())
-                    documents.append(Document(text=json.dumps(data, ensure_ascii=False)))
+                    documents.append(
+                        Document(text=json.dumps(data, ensure_ascii=False))
+                    )
         return documents
 
     @staticmethod
@@ -300,13 +314,13 @@ class TopKLogSystem:
 
         # (修改) 2. 准备日志上下文 (Log DB)
         log_context_str = "## [可用工具 1: 日志数据库 (Log DB)]\n"
-        log_data = context.get("log_context", []) # 从字典获取
+        log_data = context.get("log_context", [])  # 从字典获取
         if not log_data:
             log_context_str += "（未从日志数据库检索到相关内容）\n"
         else:
             for i, log in enumerate(log_data, 1):
                 # 确保 score 是浮点数以便格式化
-                score = log.get('score', 0.0)
+                score = log.get("score", 0.0)
                 log_context_str += f"日志 {i} (Score: {score:.2f}): {log['content']}\n"
 
         # (新增) 3. 准备联网搜索上下文 (Web Search)
@@ -317,7 +331,6 @@ class TopKLogSystem:
         else:
             for i, web_result in enumerate(web_data, 1):
                 web_context_str += f"网页 {i} (Source: {web_result.get('source', 'N/A')}): {web_result['content']}\n"
-
 
         # (修改) 4. 更新用户模板
         user_message_template = HumanMessagePromptTemplate.from_template(
@@ -396,27 +409,30 @@ class TopKLogSystem:
         return prompt_template.format_prompt(
             chat_history=formatted_history,
             log_context=log_context_str,
-            web_context=web_context_str, 
+            web_context=web_context_str,
             query=query,
         ).to_messages()
 
     # (修改) 更新 query 方法以适应新的 generate_response 签名 (主要用于内部测试)
-    def query(self, query: str, history: List[Dict] = None, use_db_search: bool = True, use_web_search: bool = False):
+    def query(
+        self,
+        query: str,
+        history: List[Dict] = None,
+        use_db_search: bool = True,
+        use_web_search: bool = False,
+    ):
         log_results = []
         if use_db_search:
             log_results = self.retrieve_logs(query)
-        
+
         web_results = []
         if use_web_search:
             # 内部测试无法调用 services.py 的 mock，这里简单模拟
             logger.info(f"[MOCK-QUERY] 联网搜索: {query}")
             web_results = [{"content": "模拟网页结果", "source": "mock.com"}]
 
-        combined_context = {
-            "log_context": log_results,
-            "web_context": web_results
-        }
-        
+        combined_context = {"log_context": log_results, "web_context": web_results}
+
         for chunk in self.generate_response(query, combined_context, history):
             yield chunk
 
@@ -424,9 +440,9 @@ class TopKLogSystem:
 if __name__ == "__main__":
     # 测试使用 DeepSeek-R1:7B 和 BGE-Large 嵌入模型
     system = TopKLogSystem(
-        log_path="./data/log", 
+        log_path="./data/log",
         llm="deepseek-r1:7b",  # DeepSeek-R1:7B - 基于 Qwen2 架构
-        embedding_model="bge-large:latest"  # BGE-Large 嵌入模型
+        embedding_model="bge-large:latest",  # BGE-Large 嵌入模型
     )
 
     query1 = "我遇到了数据库问题"
@@ -448,7 +464,9 @@ if __name__ == "__main__":
     print("\n查询2 (测试历史对话):", query2)
     print("响应2 (流式 - 无搜索):")
     full_response_2 = ""
-    for chunk in system.query(query2, history=history_example, use_db_search=False, use_web_search=False):
+    for chunk in system.query(
+        query2, history=history_example, use_db_search=False, use_web_search=False
+    ):
         print(chunk, end="", flush=True)
         full_response_2 += chunk
     print("\n--- 流结束 ---")
@@ -459,7 +477,9 @@ if __name__ == "__main__":
     print("\n查询3 (测试日志分析 + 联网):", query3)
     print("响应3 (流式):")
     full_response_3 = ""
-    for chunk in system.query(query3, history=history_example, use_db_search=True, use_web_search=True):
+    for chunk in system.query(
+        query3, history=history_example, use_db_search=True, use_web_search=True
+    ):
         print(chunk, end="", flush=True)
         full_response_3 += chunk
     print("\n--- 流结束 ---")
@@ -469,6 +489,8 @@ if __name__ == "__main__":
     history_example.append({"role": "assistant", "content": full_response_3})
     print("\n查询4 (测试常规对话):", query4)
     print("响应4 (流式):")
-    for chunk in system.query(query4, history=history_example, use_db_search=False, use_web_search=False):
+    for chunk in system.query(
+        query4, history=history_example, use_db_search=False, use_web_search=False
+    ):
         print(chunk, end="", flush=True)
     print("\n--- 流结束 ---")

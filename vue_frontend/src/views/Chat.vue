@@ -469,6 +469,7 @@ const handleLogout = () => {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  gap: 3rem;
 }
 
 .empty-state {
