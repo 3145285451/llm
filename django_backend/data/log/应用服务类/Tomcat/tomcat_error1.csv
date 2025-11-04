@@ -1,0 +1,122 @@
+错误类别,具体错误现象,原因分析,解决方案
+启动错误,Address already in use: JVM_Bind,端口被占用,更改server.xml中的端口号或杀死占用进程
+启动错误,java.net.BindException: Permission denied,Linux下绑定1024以下端口无权限,使用sudo启动或改用1024以上端口
+启动错误,SEVERE: Error starting static Resources,server.xml配置错误,检查server.xml中Resource配置路径是否正确
+启动错误,No Context found for request,未配置上下文或路径错误,在server.xml中正确配置Context
+启动错误,Cannot find server.xml,server.xml文件丢失或路径错误,检查conf目录下server.xml是否存在
+启动错误,Java home setting incorrect,JAVA_HOME环境变量配置错误,正确设置JAVA_HOME指向JDK目录
+启动错误,OutOfMemoryError: PermGen space,永久代内存不足,增加-XX:MaxPermSize参数
+启动错误,OutOfMemoryError: Java heap space,堆内存不足,增加-Xmx参数
+启动错误,OutOfMemoryError: Metaspace,元空间内存不足,增加-XX:MaxMetaspaceSize参数
+启动错误,OutOfMemoryError: Unable to create new native thread,线程数超出系统限制,减少线程数或调整系统限制
+启动错误,ClassNotFoundException,类找不到,检查类路径和依赖包
+启动错误,NoClassDefFoundError,类定义找不到,检查类路径和jar包完整性
+启动错误,UnsupportedClassVersionError,JDK版本不兼容,使用匹配的JDK版本编译和运行
+启动错误,Catalina.home and catalina.base not set,CATALINA_HOME未设置,正确设置CATALINA环境变量
+启动错误,Server startup failed due to one or more listeners,监听器配置错误,检查server.xml中Listener配置
+部署错误,Deployment failed: Invalid WAR file,WAR文件损坏或不完整,重新打包WAR文件
+部署错误,Application at context path could not be started,应用上下文启动失败,检查应用配置和依赖
+部署错误,FAIL - Application already exists at path path,路径重复部署,先取消部署或使用不同路径
+部署错误,FAIL - Unable to delete file,文件被锁定无法删除,重启Tomcat或检查文件权限
+部署错误,Invalid context path was specified,上下文路径格式错误,使用正确的上下文路径格式
+部署错误,Missing application context,缺少应用上下文配置,在server.xml或context.xml中配置
+部署错误,Deployment descriptor parsing error,web.xml解析错误,检查web.xml语法和格式
+部署错误,Class loading error in deployment,类加载错误,检查WEB-INF/classes和WEB-INF/lib
+部署错误,Duplicate filter or servlet mapping,过滤器或Servlet映射重复,检查web.xml中映射配置
+部署错误,Invalid servlet mapping URL pattern,Servlet URL模式无效,使用正确的URL模式格式
+部署错误,Listener or filter class not found,监听器或过滤器类找不到,检查类路径和包名
+运行时错误,404 Not Found,资源未找到,检查URL路径和文件是否存在
+运行时错误,500 Internal Server Error,服务器内部错误,查看catalina.out日志定位具体问题
+运行时错误,403 Forbidden,访问被禁止,检查文件和目录权限
+运行时错误,400 Bad Request,请求格式错误,检查请求参数和格式
+运行时错误,405 Method Not Allowed,HTTP方法不允许,检查支持的HTTP方法
+运行时错误,503 Service Unavailable,服务不可用,检查应用状态和资源
+运行时错误,Connection timeout,连接超时,检查网络和服务器负载
+运行时错误,SSL handshake failed,SSL握手失败,检查证书和SSL配置
+运行时错误,Session not available,会话不可用,检查session配置和管理
+运行时错误,File upload size exceeded,文件上传大小超限,调整maxPostSize参数
+运行时错误,Too many open files,打开文件数超限,调整系统文件描述符限制
+运行时错误,Database connection pool exhausted,数据库连接池耗尽,调整连接池配置或检查数据库
+运行时错误,JNDI resource not found,JNDI资源未找到,检查context.xml和server.xml配置
+运行时错误,JDBC driver not found,JDBC驱动未找到,将驱动jar包放入lib目录
+运行时错误,Transaction rollback error,事务回滚错误,检查数据库事务配置
+会话错误,Session creation failed,会话创建失败,检查session配置和存储
+会话错误,Session serialization error,会话序列化错误,确保会话对象可序列化
+会话错误,Session persistence error,会话持久化错误,检查会话存储配置
+会话错误,Session cookie not working,会话Cookie无效,检查Cookie配置和浏览器设置
+安全错误,Authentication failed,认证失败,检查安全域和用户配置
+安全错误,Authorization failed,授权失败,检查角色和权限配置
+安全错误,SSL certificate error,SSL证书错误,检查证书有效性和配置
+安全错误,Security constraint violation,安全约束违规,检查安全约束配置
+安全错误,Cross-site scripting vulnerability,跨站脚本漏洞,对用户输入进行过滤
+安全错误,SQL injection vulnerability,SQL注入漏洞,使用参数化查询
+安全错误,Directory listing enabled,目录浏览启用,在web.xml中禁用目录列表
+安全错误,Weak encryption algorithms,弱加密算法,使用强加密算法
+安全错误,Missing security headers,安全头缺失,配置安全相关的HTTP头
+配置错误,Context configuration error,上下文配置错误,检查context.xml配置
+配置错误,Connector configuration error,连接器配置错误,检查server.xml中Connector配置
+配置错误,Valve configuration error,阀门配置错误,检查Valve配置
+配置错误,Realm configuration error,域配置错误,检查Realm配置
+配置错误,Resource configuration error,资源配置错误,检查Resource配置
+配置错误,JVM parameter incorrect,JVM参数错误,检查catalina.sh/bat中JVM参数
+配置错误,Logging configuration error,日志配置错误,检查logging.properties
+配置错误,Thread pool configuration error,线程池配置错误,检查Executor配置
+配置错误,Cluster configuration error,集群配置错误,检查集群配置
+配置错误,Load balancing configuration error,负载均衡配置错误,检查负载均衡配置
+性能错误,Slow response time,响应时间慢,优化应用代码和配置
+性能错误,High memory usage,内存使用率高,优化内存配置和代码
+性能错误,High CPU usage,CPU使用率高,优化代码和线程配置
+性能错误,Thread deadlock,线程死锁,检查同步代码和资源竞争
+性能错误,Memory leak,内存泄漏,检查代码中的资源释放
+性能错误,Garbage collection overhead,垃圾回收开销大,优化GC参数和内存配置
+性能错误,Database connection leak,数据库连接泄漏,确保正确关闭连接
+性能错误,File handle leak,文件句柄泄漏,确保正确关闭文件流
+日志错误,Log file too large,日志文件过大,配置日志轮转和清理
+日志错误,Log level too verbose,日志级别过于详细,调整适当的日志级别
+日志错误,Log directory not writable,日志目录不可写,检查日志目录权限
+日志错误,Log format incorrect,日志格式错误,检查日志格式配置
+类加载错误,ClassCastException,类转换异常,检查类加载器和类定义
+类加载错误,LinkageError,链接错误,检查类路径和版本冲突
+类加载错误,NoSuchMethodError,方法不存在错误,检查jar包版本冲突
+类加载错误,AbstractMethodError,抽象方法错误,检查接口实现
+类加载错误,Class circularity detected,类循环依赖,检查类依赖关系
+类加载错误,Class loader leak,类加载器泄漏,检查类加载器使用
+WebSocket错误,WebSocket handshake failed,WebSocket握手失败,检查WebSocket配置
+WebSocket错误,WebSocket connection closed unexpectedly,WebSocket连接意外关闭,检查网络和应用逻辑
+WebSocket错误,WebSocket message too large,WebSocket消息过大,调整消息大小限制
+JSP错误,JSP compilation failed,JSP编译失败,检查JSP语法和依赖
+JSP错误,JSP translation error,JSP转换错误,检查JSP容器配置
+JSP错误,Tag library not found,标签库未找到,检查TLD文件和配置
+JSP错误,EL expression error,EL表达式错误,检查EL表达式语法
+JSP错误,JSTL configuration error,JSTL配置错误,检查JSTL库和配置
+过滤器错误,Filter chain broken,过滤器链中断,检查过滤器doFilter调用
+过滤器错误,Filter initialization failed,过滤器初始化失败,检查过滤器init方法
+过滤器错误,Filter mapping conflict,过滤器映射冲突,检查过滤器URL映射
+Servlet错误,Servlet initialization failed,Servlet初始化失败,检查Servlet init方法
+Servlet错误,Servlet service method error,Servlet服务方法错误,检查service/doGet/doPost方法
+Servlet错误,Servlet context not available,Servlet上下文不可用,检查getServletContext调用
+监听器错误,Listener initialization failed,监听器初始化失败,检查监听器初始化
+监听器错误,Context listener error,上下文监听器错误,检查contextInitialized/destroyed方法
+监听器错误,Session listener error,会话监听器错误,检查sessionCreated/destroyed方法
+监听器错误,Request listener error,请求监听器错误,检查requestInitialized/destroyed方法
+资源错误,Resource not found,资源未找到,检查资源路径和配置
+资源错误,Resource access denied,资源访问被拒绝,检查资源权限
+资源错误,Resource leak,资源泄漏,确保正确关闭资源
+资源错误,Database connection failed,数据库连接失败,检查数据库配置和状态
+集群错误,Session replication failed,会话复制失败,检查集群配置和网络
+集群错误,Multicast configuration error,组播配置错误,检查组播地址和端口
+集群错误,Cluster node communication failed,集群节点通信失败,检查网络和防火墙
+缓存错误,Cache configuration error,缓存配置错误,检查缓存配置
+缓存错误,Cache overflow,缓存溢出,调整缓存大小和策略
+缓存错误,Cache coherence issue,缓存一致性问题,检查缓存同步机制
+监控错误,JMX connection failed,JMX连接失败,检查JMX配置和端口
+监控错误,Monitoring agent error,监控代理错误,检查监控代理配置
+操作系统错误,Too many open files,打开文件数过多,调整系统文件描述符限制
+操作系统错误,Port already in use,端口被占用,更改端口或释放占用端口
+操作系统错误,Insufficient memory,内存不足,增加系统内存或优化应用
+操作系统错误,File system full,文件系统已满,清理磁盘空间
+操作系统错误,Permission denied,权限不足,检查文件和目录权限
+网络错误,Connection reset by peer,连接被对端重置,检查网络和客户端
+网络错误,Network unreachable,网络不可达,检查网络配置
+网络错误,DNS resolution failed,DNS解析失败,检查DNS配置
+网络错误,Firewall blocking,防火墙阻挡,检查防火墙规则

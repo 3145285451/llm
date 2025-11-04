@@ -1,0 +1,121 @@
+序号,错误类型,错误描述,常见错误消息示例,原因分析,解决方法
+1,镜像错误,拉取镜像失败,Error response from daemon: pull access denied,镜像不存在或无权访问,检查镜像名、标签、仓库权限
+2,镜像错误,镜像构建失败,ERROR: failed to solve: process failed,Dockerfile语法错误或依赖问题,检查Dockerfile、网络连接、基础镜像
+3,镜像错误,镜像标签错误,Error: No such image,tag不存在或镜像未构建,确认镜像标签，重新构建或拉取
+4,镜像错误,镜像大小过大,镜像构建产物过大,包含不必要的文件或层,使用多阶段构建，优化.dockerignore
+5,镜像错误,层缓存失效,构建时未利用缓存,构建上下文变化或指令顺序不合理,优化Dockerfile指令顺序
+6,容器错误,容器启动失败,Error: failed to start container,端口冲突、资源不足,检查端口占用、系统资源
+7,容器错误,容器立即退出,Exited (0) immediately,前台进程结束或配置错误,确保有前台进程，检查启动命令
+8,容器错误,容器名称冲突,Conflict. The container name is already in use,容器名重复,使用不同名称或删除旧容器
+9,容器错误,权限拒绝,Permission denied,容器内进程权限不足,使用--user参数或调整权限
+10,容器错误,资源限制 exceeded,OOM killer或资源限制,内存、CPU不足,调整资源限制或优化应用
+11,网络错误,端口绑定失败,Error: cannot assign requested address,端口已被占用或无效,更换端口或检查占用程序
+12,网络错误,网络连接失败,network not found,网络不存在或驱动问题,创建网络或检查网络驱动
+13,网络错误,DNS解析失败,Unable to resolve domain,容器DNS配置错误,检查/etc/resolv.conf或自定义DNS
+14,网络错误,容器间通信失败,Connection refused,网络配置或防火墙阻止,检查网络模式、防火墙规则
+15,网络错误,桥接网络问题,iptables规则冲突,防火墙规则干扰,调整iptables或使用用户定义网络
+16,存储错误,卷挂载失败,Error: invalid volume specification,卷路径格式错误,检查卷映射语法
+17,存储错误,权限映射错误,Permission denied on volume mount,主机-容器用户权限不匹配,调整文件权限或使用命名卷
+18,存储错误,磁盘空间不足,No space left on device,宿主机磁盘满,清理磁盘空间或扩展存储
+19,存储错误,绑定挂载文件丢失,Error: file not found,主机文件不存在,确保主机文件路径正确
+20,存储错误,卷驱动问题,Volume driver not found,存储驱动未安装或配置,安装对应驱动或更换驱动
+21,编排错误,Compose版本不兼容,Unsupported config option,docker-compose.yml版本过高,降低版本或升级Docker
+22,编排错误,服务依赖问题,Service depends on undefined service,服务依赖未定义,检查depends_on配置
+23,编排错误,环境变量缺失,Required variable missing,环境变量未设置,提供必需环境变量
+24,编排错误,资源竞争,Service startup timeout,服务启动顺序问题,调整依赖或增加健康检查
+25,编排错误,网络冲突,Network with same name exists,Compose项目网络冲突,使用不同项目名或清理网络
+26,Dockerfile错误,RUN指令失败,ERROR: command failed,RUN命令执行失败,检查命令语法和依赖
+27,Dockerfile错误,COPY文件不存在,ERROR: source not found,复制文件不存在于构建上下文,检查文件路径和.dockerignore
+28,Dockerfile错误,WORKDIR无效,ERROR: path does not exist,工作目录不存在,确保目录存在或先创建
+29,Dockerfile错误,ENTRYPOINT格式错误,ERROR: invalid entrypoint,入口点格式错误,使用JSON格式或调整语法
+30,Dockerfile错误,多阶段构建错误,ERROR: failed to build stage,阶段依赖或复制错误,检查构建阶段和复制路径
+31,守护进程错误,Docker服务未启动,Cannot connect to Docker daemon, Docker服务未运行,启动Docker服务(systemctl start docker)
+32,守护进程错误,权限不足,Got permission denied while trying to connect,用户不在docker组,将用户加入docker组或使用sudo
+33,守护进程错误,存储驱动错误,Storage driver issue,存储驱动崩溃或配置错误,切换存储驱动或清理数据
+34,守护进程错误,日志文件过大,Daemon logs disk space,日志未轮转导致磁盘满,配置日志轮转和大小限制
+35,守护进程错误,API版本不匹配,Client and server version mismatch,客户端服务端版本不兼容,升级或降级版本保持一致
+36,安全错误,镜像漏洞,Vulnerabilities found in image,镜像包含安全漏洞,更新基础镜像、扫描漏洞
+37,安全错误,特权模式风险,Container running in privileged mode,过度权限带来安全风险,避免使用--privileged
+38,安全错误,敏感信息泄露,Secrets exposed in image,密码、密钥打包进镜像,使用Docker secrets或环境变量
+39,安全错误,容器逃逸风险,Potential container breakout,配置不当导致容器逃逸,加强安全配置、使用用户命名空间
+40,安全错误,root用户运行,Container running as root,容器内使用root用户风险,使用非root用户运行
+41,资源错误,内存不足,Out of memory,容器内存超限,增加内存限制或优化应用内存使用
+42,资源错误,CPU竞争,CPU throttling,CPU资源不足,调整CPU份额或限制
+43,资源错误,文件描述符耗尽,Too many open files,进程打开文件数超限,增加文件描述符限制
+44,资源错误,进程数限制,Can't fork process,容器内进程数超限,调整pid_limit或优化应用
+45,资源错误,磁盘I/O瓶颈,I/O wait high,存储性能不足,使用SSD或优化I/O操作
+46,日志错误,日志驱动失败,Failed to initialize logging driver,日志配置错误或驱动问题,检查日志驱动配置
+47,日志错误,日志丢失,Logs not persisted,日志未持久化存储,配置合适的日志驱动和存储
+48,日志错误,日志大小失控,Log file too large,日志未轮转,配置日志大小和轮转策略
+49,日志错误,日志格式错误,Invalid log format,应用程序日志格式不兼容,调整日志格式或使用解析工具
+50,日志错误,日志权限问题,Cannot write to log file,日志文件权限不足,调整日志目录权限
+51,注册表错误,登录失败,Unauthorized: authentication required,凭证错误或过期,重新登录或检查凭证
+52,注册表错误,推送被拒绝,Push denied: repository does not exist,仓库不存在或无写权限,创建仓库或获取推送权限
+53,注册表错误,速率限制,Too many requests,请求过于频繁,等待限制解除或使用镜像加速器
+54,注册表错误,TLS证书错误,x509: certificate signed by unknown authority,证书验证失败,信任证书或使用HTTP（测试环境）
+55,注册表错误,网络超时,Network timeout while pushing/pulling,网络连接不稳定,检查网络或使用国内镜像源
+56,编排错误,Swarm节点故障,Node not found in swarm,节点离线或网络分区,检查节点状态和网络连接
+57,编排错误,服务副本数不足,Service not at desired scale,节点资源不足或任务失败,调整资源或检查任务状态
+58,编排错误,滚动更新失败,Rollback or update failed,新版本部署问题,检查新镜像或回滚策略
+59,编排错误,密钥管理错误,Secret not found,密钥未创建或权限不足,创建密钥并分发给服务
+60,编排错误,堆栈部署失败,Stack deployment failed,Compose文件错误或资源冲突,检查配置文件和服务状态
+61,Windows特定错误,路径格式错误,Invalid volume specification,Windows路径格式问题,使用正确的路径格式（如C:\path）
+62,Windows特定错误,文件系统不兼容,Filesystem not supported,Windows和Linux文件系统差异,使用适合的存储驱动
+63,Windows特定错误,行尾符问题,Script failure due to line endings,CRLF/LF转换问题,统一行尾符或使用.gitattributes
+64,Windows特定错误,Hyper-V冲突,Hyper-V not enabled,虚拟化未开启或冲突,启用Hyper-V或解决冲突
+65,Windows特定错误,版本兼容性问题,Version compatibility issue,Windows版本与Docker不兼容,使用支持的Windows版本
+66,Mac特定错误,Docker Desktop启动失败,Docker desktop unable to start,虚拟化问题或资源冲突,重启Docker Desktop或检查虚拟机状态
+67,Mac特定错误,文件共享失败,File sharing not enabled,目录未添加到文件共享列表,在设置中添加共享目录
+68,Mac特定错误,资源分配不足,Insufficient CPU/Memory,Docker资源分配不足,调整Docker Desktop资源分配
+69,Mac特定错误,QEMU错误,QEMU process failure,虚拟机内部错误,重启Docker或重置虚拟机
+70,Mac特定错误,网络模式冲突,Network mode conflict,Mac网络配置冲突,调整网络设置或重置网络
+71,Linux特定错误,内核版本过低,Kernel version too old,内核版本不满足要求,升级Linux内核版本
+72,Linux特定错误,cgroups问题,cgroups configuration error,cgroups配置错误或版本过旧,升级cgroups或调整配置
+73,Linux特定错误,AppArmor/SELinux冲突,AppArmor denies operation,安全模块阻止操作,调整AppArmor/SELinux策略
+74,Linux特定错误,设备映射错误,Device mapping failed,设备权限或路径问题,检查设备文件和权限
+75,Linux特定错误,Union文件系统问题,Union mount failure,存储驱动不支持或配置错误,更换存储驱动（如overlay2）
+76,健康检查错误,健康检查失败,Health check failed,应用未正确响应健康检查,调整健康检查命令或间隔
+77,健康检查错误,检查超时,Health check timeout,应用响应慢或超时设置过短,增加超时时间或优化应用
+78,健康检查错误,检查命令错误,Health check command not found,健康检查命令不存在,确保命令在容器内可用
+79,健康检查错误,过度重启,Container restarting too frequently,健康检查过于敏感,调整重启策略和检查参数
+80,健康检查错误,资源竞争,Health check impacts performance,健康检查消耗过多资源,优化检查频率和资源分配
+81,环境变量错误,变量未传递,Environment variable not set,运行时常量未传递,正确设置环境变量（-e或env文件）
+82,环境变量错误,变量覆盖,Variable overridden by Dockerfile,Dockerfile中ENV覆盖运行时变量,注意ENV和运行时变量的优先级
+83,环境变量错误,特殊字符处理,Special characters in variables,变量值中的特殊字符解析错误,正确转义或使用文件方式
+84,环境变量错误,变量扩展错误,Variable expansion failed,变量引用语法错误,检查变量引用语法（$VAR或${VAR}）
+85,环境变量错误,敏感信息暴露,Sensitive data in environment,敏感数据以环境变量形式暴露,使用Docker secrets或配置文件
+86,数据持久化错误,数据卷丢失,Volume data lost after removal,匿名卷随容器删除而删除,使用命名卷或绑定挂载
+87,数据持久化错误,权限不一致,Permission issues on volume,容器内外用户权限不匹配,调整权限或使用相同UID/GID
+88,数据持久化错误,备份失败,Backup failed due to open files,备份时文件被占用,暂停应用或使用快照功能
+89,数据持久化错误,存储驱动限制,Storage driver limitations,某些存储驱动不支持高级功能,根据需求选择合适的存储驱动
+90,数据持久化错误,多容器写入冲突,Multiple containers writing to same volume,多容器同时写入导致数据损坏,使用单个写入器或分布式文件系统
+91,多阶段构建错误,阶段复制遗漏,COPY --from stage not found,复制来源阶段不存在或名称错误,检查阶段名称和构建顺序
+92,多阶段构建错误,构建缓存失效,Stage not cached due to early change,早期指令变化导致后续阶段缓存失效,优化指令顺序提高缓存利用率
+93,多阶段构建错误,依赖缺失,Required binaries not in final stage,最终镜像缺少运行依赖,确保复制所有必要文件
+94,多阶段构建错误,构建参数传递,Build args not available in all stages,构建参数未传递到所有阶段,正确传递--build-args到各阶段
+95,多阶段构建错误,目标阶段错误,Target stage does not exist,--target指定的阶段不存在,检查Dockerfile阶段定义
+96,集群错误,节点通信失败,Nodes cannot communicate,防火墙或网络配置阻止节点通信,开放必要端口和检查网络
+97,集群错误,领导选举失败,Leader election failed,管理节点故障或网络分区,检查节点状态和网络连接
+98,集群错误,服务发现失败,Service discovery not working,DNS解析或负载均衡问题,检查DNS配置和服务状态
+99,集群错误,配置更新失败,Config update not propagated,配置更新未同步到所有节点,强制更新或检查同步状态
+100,集群错误,资源预留不足,Insufficient resources for task,集群资源不足无法调度任务,增加节点或调整资源预留
+101,镜像仓库错误,镜像清单损坏,Manifest invalid or corrupted,镜像上传不完整或损坏,重新推送镜像
+102,镜像仓库错误,层校验和失败,Layer checksum mismatch,镜像层下载损坏,重新拉取或检查网络
+103,镜像仓库错误,仓库清理失败,Garbage collection failed,仓库清理过程中出错,手动清理或检查存储
+104,镜像仓库错误,镜像标记混乱,Tag confusion due to overlapping,标签重叠导致混淆,使用明确的标签策略
+105,镜像仓库错误,存储后端故障,Backend storage failure,底层存储系统故障,检查存储系统状态
+106,监控错误,指标收集失败,Metrics collection failed,监控代理配置错误或权限不足,检查监控配置和权限
+107,监控错误,日志收集中断,Log collection interrupted,日志收集器故障或资源不足,重启收集器或调整资源
+108,监控错误,性能数据不准,Inaccurate performance metrics,监控采样频率不当或数据丢失,调整监控频率和配置
+109,监控错误,告警误报,False alerts,告警阈值设置不合理,调整告警阈值和规则
+110,监控错误,监控数据存储满,Monitoring storage full,监控数据未清理导致磁盘满,配置数据保留策略和清理任务
+111,CI/CD集成错误,构建上下文过大,Build context too large,构建包含不必要文件导致缓慢,优化.dockerignore文件
+112,CI/CD集成错误,缓存失效,Build cache invalidated,CI环境中缓存未持久化,配置缓存持久化策略
+113,CI/CD集成错误,并行构建冲突,Parallel build conflicts,多个构建任务相互干扰,隔离构建环境或序列化构建
+114,CI/CD集成错误,镜像推送冲突,Image push conflict,多任务同时推送同一标签,使用不同标签或协调推送顺序
+115,CI/CD集成错误,部署回滚失败,Rollback failed,旧版本不可用或配置不兼容,确保旧版本可用性和配置兼容
+116,设备映射错误,GPU设备不可用,Cannot find GPU device,GPU驱动未安装或权限问题,安装nvidia-docker并检查权限
+117,设备映射错误,USB设备识别失败,USB device not found,设备未连接或权限不足,检查设备连接和权限（--device参数）
+118,设备映射错误,字符设备问题,Character device issue,特殊设备文件映射错误,确保设备文件存在且权限正确
+119,设备映射错误,设备忙错误,Device or resource busy,设备被其他进程占用,释放设备或停止占用进程
+120,设备映射错误,设备权限持久化,Device permissions not persistent,设备权限在重启后失效,创建udev规则持久化权限
