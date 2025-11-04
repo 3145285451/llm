@@ -1,0 +1,52 @@
+错误类型/错误信息,可能原因,解决方法
+UnknownTopicOrPartitionException,Producer向不存在的Topic发送消息。,检查Topic是否存在，或设置`auto.create.topics.enable=true`参数。
+LEADER_NOT_AVAILABLE,Topic正在被删除、正在进行Leader选举、Broker宕机。,使用`kafka-topics`脚本检查Leader信息，确认Broker存活状态，尝试重启。
+NotLeaderForPartitionException,Leader发生切换，客户端元数据过期，仍向旧的Leader Broker发送请求。,分析导致Leader切换的原因（如Broker宕机），客户端应刷新元数据。
+TimeoutException,网络延迟高、Broker负载过高、配置的超时时间（`request.timeout.ms`）过短。,检查网络连通性，增加`request.timeout.ms`的值。
+RecordTooLargeException / MessageSizeTooLarge,消息大小超过Broker配置的`message.max.bytes`或生产者配置的`buffer.memory`限制。,生产者端减少`batch.size`；或调整Broker的`message.max.bytes`配置；对消息进行分片处理。
+NetWorkException / 连接断开,网络连接中断，防火墙阻止了端口通信。,检查Broker的网络情况，确保防火墙开放了Kafka端口（默认9092）。
+ConcurrentModificationException,多线程并发访问非线程安全的KafkaConsumer对象。,确保每个线程使用独立的KafkaConsumer实例，或对消费逻辑进行加锁。
+ILLEGAL_GENERATION,Consumer处理消息时间过长，错过了组重平衡（Rebalance），被移出消费者组。,减少`max.poll.records`（单次拉取消息数），增加`max.poll.interval.ms`（处理超时时间），优化消费逻辑。
+Broker启动失败：端口被占用,另一个Kafka进程或其他应用占用了9092端口。,使用`lsof -i :9092`检查并终止占用进程，或修改Kafka的监听端口。
+Broker启动失败：ZooKeeper连接失败,ZooKeeper服务未启动，或`zookeeper.connect`配置错误。,确保ZooKeeper服务正常，检查`zookeeper.connect`的地址和端口是否正确。
+客户端无法连接Broker,客户端配置的Broker地址（`advertised.listeners`）不正确或网络不可达。,正确配置`advertised.listeners`为客户端可访问的IP/域名，检查网络和防火墙设置。
+Failed to construct kafka producer,JAAS认证文件（如`kafka_client_jaas.conf`）配置错误，例如`serviceName`不匹配、`keyTab`路径错误。,仔细检查JAAS文件中的`serviceName`、`keyTab`路径、`principal`等配置项是否正确。
+TopicAuthorizationFailed,"客户端没有操作指定Topic的权限（如Read, Write）。",检查Kafka的ACL（访问控制列表）配置，为客户端用户授予相应权限。
+SASLAuthenticationFailed,SASL（简单认证安全层）认证失败，如用户名密码错误、机制不匹配。,"检查客户端与Broker的SASL配置（如PLAIN, SCRAM）是否一致，验证凭证有效性。"
+OffsetOutOfRange,消费者要读取的偏移量（Offset）不在当前有效的偏移量范围内。,根据业务需求，将消费位移重置到最早（`earliest`）或最新（`latest`）的偏移量。
+RebalanceInProgress,消费者组正在执行重平衡，此时消费者无法拉取消息。,避免在消费逻辑中执行耗时操作，合理配置`session.timeout.ms`和`max.poll.interval.ms`。
+NotEnoughReplicasException,生产者设置`acks=all`时，同步副本（ISR）的数量不足。,确保存活的Broker数量足够，调整`min.insync.replicas`参数或降低生产者的`acks`要求。
+消息延迟高,网络瓶颈、Broker磁盘IO慢、生产者/消费者配置不当。,优化网络和硬件（如使用SSD），生产者端开启压缩，消费者端增加并发度。
+消息丢失,生产者设置`acks=0`或`1`，消息未完全写入副本就返回成功；消费者开启自动提交，处理失败但偏移量已提交。,生产者设置`acks=all`；消费者关闭自动提交（`enable.auto.commit=false`），在处理成功后手动提交偏移量。
+重复消费,消费者处理消息后，提交偏移量失败，下次拉取时会从旧偏移量开始。,实现消费逻辑的幂等性，或确保偏移量提交的可靠性。
+消息积压（Backlog）,生产者生产速率远大于消费者消费速率；主题分区数不足导致消费并发度不够。,增加主题分区数，提升消费者实例数量，优化消费者业务逻辑处理速度。
+消费者处理速度慢,消费者业务逻辑复杂或存在瓶颈；单次拉取消息过多。,优化消费逻辑，使用多线程处理，调整`max.poll.records`减少单次拉取量。
+频繁的消费者组重平衡,消费者心跳超时（`session.timeout.ms`过短）或处理消息超时（`max.poll.interval.ms`过短）。,适当增大`session.timeout.ms`和`max.poll.interval.ms`参数值。
+Leader分区不可用,Leader分区所在的Broker宕机，且没有可用的同步副本（ISR）。,检查并恢复故障Broker，确保主题的`replication.factor`（副本因子）设置合理（如>=3）。
+Controller失效,Kafka Controller所在Broker异常，无法管理集群元数据。,检查Controller日志，确保Controller能正常选举和工作。
+磁盘空间不足,Kafka日志保留策略不当或数据涌入过快，占满磁盘。,清理过期数据，调整日志保留策略（`log.retention.hours`），或扩容磁盘。
+日志文件过大,日志段文件（Log Segment）滚动设置不合理。,调整`log.segment.bytes`等参数，定期清理日志。
+高CPU占用或频繁Full GC,JVM堆内存不足或GC策略不合理；消息堆积触发频繁压缩。,调整JVM参数（如`-Xmx`，使用G1垃圾回收器），监控堆外内存使用情况。
+InvalidRequiredAcks,"生产者配置的`acks`参数值不合法（有效值为-1, 0, 1）。",将`acks`值修正为`all`（即-1），`0`或`1`。
+Closing socket connection,客户端与Broker的版本不兼容。,确保客户端与Broker的版本兼容。
+KafkaStreams应用状态恢复失败,本地状态存储损坏或底层Topic被篡改。,清理应用的本地状态目录（通常为`/tmp/kafka-streams`下的目录）并重启应用。
+__consumer_offsets Topic异常,存储消费者组偏移量的内部Topic出现错误。,谨慎情况下，可以考虑重置消费者组偏移量，或重建该内部Topic（需谨慎，会影响所有消费者组）。
+跨机房同步延迟高,机房之间网络延迟高、带宽不足。,使用专线优化网络，部署MirrorMaker 2.0并合理配置。
+Java版本不兼容,运行的Kafka版本与JDK版本不匹配。,根据Kafka官方文档要求使用正确的JDK版本（如Kafka 3.0+需要JDK 11或更高）。
+OS文件描述符不足,Linux系统默认的文件描述符限制过低。,增加操作系统级别的文件描述符数量限制。
+ZooKeeper Session过期,网络问题或ZooKeeper集群压力大导致连接超时。,检查网络稳定性，优化ZooKeeper集群性能，适当调整`zookeeper.session.timeout.ms`参数。
+Metadata request timeout,客户端无法及时从Broker获取元数据。,检查网络连接，增加`metadata.max.age.ms`的值。
+GroupCoordinatorNotAvailableException,消费者组协调器不可用，通常是Broker或ZooKeeper问题。,检查Broker和ZooKeeper的状态，确保它们正常运行。
+InconsistentGroupProtocolException,消费者组内的消费者订阅了不同的Topic或使用了不同的分区分配策略。,确保组内所有消费者的订阅和配置一致。
+FencedInstanceIdException,静态成员ID冲突，另一个具有相同ID的消费者已加入组。,检查消费者配置，确保静态成员ID唯一。
+InvalidTopicException,Topic名称不符合规范或包含非法字符。,检查Topic名称，确保符合Kafka命名规则。
+UnsupportedVersionException,客户端使用的API版本不被Broker支持。,升级或降级客户端或Broker版本以匹配API。
+InvalidReplicationFactorException,副本因子设置无效，如大于可用Broker数。,调整`replication.factor`参数，确保不超过Broker总数。
+InvalidPartitionsException,分区数设置无效，如为负数或零。,检查并修正分区数配置。
+PolicyViolationException,违反了Broker端配置的策略（如消息格式、大小限制）。,检查Broker策略配置，确保消息符合要求。
+SecurityDisabledException,尝试执行需要安全认证的操作，但安全功能未启用。,启用Kafka安全特性（如SSL/SASL）。
+SslAuthenticationException,SSL/TLS握手失败，证书问题或配置错误。,检查SSL证书和密钥配置，确保正确无误。
+ClusterAuthorizationException,客户端没有集群级别的操作权限（如创建Topic）。,为客户端用户授予相应的集群操作权限。
+DelegationTokenAuthDisabledException,尝试使用委托令牌认证，但Broker未启用此功能。,在Broker配置中启用委托令牌认证。
+InvalidTimestampException,消息的时间戳无效或格式不正确。,检查生产者端时间戳生成逻辑，确保符合规范。
+UnsupportedCompressionTypeException,Broker不支持生产者使用的压缩类型。,调整生产者压缩配置，使用Broker支持的压缩算法。

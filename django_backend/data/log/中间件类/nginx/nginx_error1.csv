@@ -1,0 +1,65 @@
+错误编号,错误类型,错误描述,可能原因
+1,配置错误,nginx: [emerg] unknown directive "xxx",配置文件中包含了Nginx无法识别的指令，通常是由于拼写错误或未加载相应模块
+2,配置错误,nginx: [emerg] invalid number of arguments in "root" directive,root指令的参数数量不正确，例如缺少或多了路径参数
+3,配置错误,nginx: [emerg] "server" directive is not allowed here,server块被放置在了不支持的上下文中，例如在非http块内
+4,配置错误,nginx: [emerg] no "events" section in configuration,配置文件中缺少必需的"events"块
+5,配置错误,nginx: [emerg] duplicate listen options for [::]:80,在IPv6端口上重复定义了监听选项
+6,配置错误,nginx: [emerg] "http" directive is not allowed here,http块被放置在了不支持的上下文中
+7,配置错误,nginx: [warn] duplicate extension "gzip", etc,配置文件中存在重复的扩展名，例如gzip设置了多次
+8,配置错误,rewrite or internal redirection cycle,重写规则或内部重定向出现循环，导致请求无法终止
+9,配置错误,location block mismatches or missing,location块匹配规则不当或缺失，导致请求无法被正确处理
+10,配置错误,upstream server name is invalid or missing,upstream块中后端服务器名称无效或缺失
+11,配置错误,proxy_pass URL without URI in a location with literal URI,在带有字面URI的location块中，proxy_pass指令的URL未包含URI部分
+12,配置错误,SSL certificate path error or permission denied,SSL证书路径错误或Nginx进程对证书文件没有读取权限
+13,配置错误,SSL handshake failed,SSL握手失败，可能由于证书问题、密码套件不匹配或协议版本不支持
+14,配置错误,HTTP/1.1 protocol required for keepalive,配置中使用了keepalive但客户端请求是HTTP/1.0
+15,配置错误,Invalid HTTP request method,客户端使用了无效的HTTP请求方法
+16,权限问题,13: Permission denied, Nginx进程对文件、目录或端口没有足够的访问权限[citation:1][citation:2][citation:4]
+17,权限问题,403 Forbidden, 文件或目录权限不足，Nginx配置中deny指令限制了访问，或SELinux阻止访问[citation:3][citation:9]
+18,权限问题,Permission denied while connecting to upstream, Nginx进程无法连接到上游服务器，可能由于SELinux或网络权限
+19,权限问题,Unable to create temporary file in /tmp, Nginx进程无法在/tmp目录创建临时文件，权限不足或磁盘满
+20,权限问题,Read access denied for static files, Nginx用户对静态资源文件（如CSS, JS, 图片）没有读取权限[citation:2][citation:4]
+21,资源限制,28 No space left on device, 磁盘空间不足，导致Nginx无法写入日志或缓存文件[citation:1][citation:2][citation:4]
+22,资源限制,24 Too many open files, 系统或Nginx的打开文件数限制过低，无法处理更多连接[citation:3][citation:7]
+23,资源限制,worker_connections are not enough, worker_connections设置过低，无法应对并发连接数
+24,资源限制,Out of memory, 系统内存耗尽，可能导致Nginx进程被OOM Killer终止[citation:5]
+25,资源限制,Cannot allocate memory, 内存分配失败，可能由于系统内存不足或进程限制
+26,资源限制,Client request body is too large, 客户端请求体（如上传文件）超过client_max_body_size限制[citation:2][citation:3][citation:7]
+27,资源限制,Request header too large, 客户端请求头超出client_header_buffer_size或large_client_header_buffers限制[citation:7]
+28,资源限制,Upstream response too large, 上游服务器的响应体过大，超出了Nginx代理缓冲区设置（proxy_buffer_size, proxy_buffers）
+29,资源限制,System load too high, 系统负载过高，导致Nginx响应缓慢或超时[citation:5]
+30,网络与后端,502 Bad Gateway, Nginx作为反向代理时，无法从后端服务器接收到有效响应[citation:3][citation:5][citation:9]
+31,网络与后端,503 Service Unavailable, 后端服务器暂时无法处理请求（如过载、维护）[citation:3][citation:9]
+32,网络与后端,504 Gateway Timeout, Nginx在proxy_read_timeout设置的时间内未收到后端服务器响应[citation:3][citation:5][citation:9]
+33,网络与后端,upstream timed out (110: Connection timed out), 与上游服务器建立连接超时，可能网络问题或上游服务宕机[citation:3][citation:5]
+34,网络与后端,upstream prematurely closed connection, 上游服务器在处理请求过程中主动关闭了连接
+35,网络与后端,no live upstreams, 负载均衡池中所有后端服务器都不可用[citation:5]
+36,网络与后端,Connection refused to upstream, 连接被上游服务器拒绝，可能服务未启动或防火墙拦截[citation:3][citation:9]
+37,网络与后端,Could not resolve host, Nginx无法解析upstream中配置的主机名，DNS问题[citation:5]
+38,网络与后端,Address family not supported by protocol, 套接字地址族与协议不匹配，例如IPv6配置问题
+39,网络与后端,Broken pipe, 在向客户端发送响应时，连接已关闭
+40,HTTP状态码,400 Bad Request, 客户端请求无效，例如请求头过大、格式错误[citation:7]
+41,HTTP状态码,404 Not Found, 客户端请求的资源在服务器上不存在[citation:3][citation:9]
+42,HTTP状态码,405 Not Allowed, 客户端使用了该资源不支持的HTTP方法
+43,HTTP状态码,408 Request Time-out, 服务器等待客户端发送请求超时
+44,HTTP状态码,499 Client Closed Request, 客户端在服务器响应之前关闭了连接[citation:7]
+45,HTTP状态码,500 Internal Server Error, 服务器内部错误，如配置文件语法错误、后端应用故障、资源限制或脚本错误[citation:3][citation:7][citation:9]
+46,HTTP状态码,501 Not Implemented, 服务器不支持实现请求所需要的功能
+47,HTTP状态码,505 HTTP Version Not Supported, 服务器不支持请求中使用的HTTP协议版本
+48,启动与进程,nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use), 端口被其他进程占用[citation:5]
+49,启动与进程,nginx: [emerg] bind() to 0.0.0.0:80 failed (13: Permission denied), 无权限绑定特权端口（如1024以下）
+50,启动与进程,nginx: [alert] could not open error log file, 无法打开错误日志文件，路径错误或权限不足
+51,启动与进程,nginx: [emerg] open() "/var/log/nginx/access.log" failed (2: No such file or directory), 日志文件路径不存在
+52,启动与进程,nginx: [emerg] getpwnam("www-data") failed, 配置中指定的用户（如www-data）不存在
+53,启动与进程,nginx: [emerg] open() "/etc/nginx/mime.types" failed (2: No such file or directory), mime.types文件丢失或路径错误
+54,启动与进程,nginx: [emerg] BIO_new_file("/path/to/cert") failed (SSL: error:02001002:system library:fopen:No such file or directory), SSL证书文件路径错误[citation:4]
+55,启动与进程,nginx: [emerg] "https protocol requires SSL support", 配置了HTTPS但Nginx未编译SSL模块[citation:4]
+56,启动与进程,nginx: [emerg] SSL modules require the OpenSSL library, 编译SSL模块时缺少OpenSSL库[citation:4]
+57,启动与进程,worker process exited on signal 11 (SIGSEGV), Worker进程因段错误而退出，可能模块bug或内存越界[citation:5]
+58,启动与进程,[alert] OpenEvent("ngx_master_10436") failed, Windows下Nginx主进程等待子进程超时[citation:6]
+59,启动与进程,use of lua-resty-core with LuaJIT 2.0 is not recommended, LuaJIT版本与lua-resty-core模块不兼容[citation:8]
+60,日志与缓存,Could not build the types_hash, you should increase either types_hash_max_size or types_hash_bucket_size, types_hash大小不足，需要调整
+61,日志与缓存,Could not build the server_names_hash, you should increase either server_names_hash_max_size or server_names_hash_bucket_size, server_names_hash大小不足，需要调整
+62,日志与缓存,Upstream sent too big header while reading response header from upstream, 从上游服务器接收的响应头过大，超出proxy_buffer_size
+63,日志与缓存,Upstream sent invalid chunked response, 上游服务器发送了无效的分块编码响应
+64,日志与缓存,Upstream response is buffered to temporary file, 上游响应被缓冲到临时文件，可能proxy_buffers过小

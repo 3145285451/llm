@@ -1,0 +1,64 @@
+错误信息,原因
+connection refused,RabbitMQ服务未启动
+connection refused,防火墙拦截5672端口
+connection refused,配置文件中listeners.tcp.default设置错误
+connection refused,端口被其他进程占用
+connection timeout,网络不可达或延迟过高
+connection timeout,公网地址错误或安全组未放行
+connection closed,心跳超时导致连接被关闭
+connection closed,TCP keepalive未开启被代理断开
+connection closed,内存/磁盘告警触发连接拒绝
+connection closed,连接数超过系统文件描述符限制
+connection closed,连接数超过RabbitMQ最大连接数
+connection closed,Erlang Cookie不匹配导致集群认证失败
+connection closed,认证失败用户名或密码错误
+connection closed,用户无权限访问指定vhost
+connection closed,尝试连接的vhost不存在
+connection closed,客户端SSL证书配置错误
+connection closed,服务端SSL配置缺失或证书过期
+connection closed,AMQP版本与客户端库不匹配
+connection closed,客户端库Bug或线程安全问题
+connection closed,服务端Bug或Erlang虚拟机崩溃
+connection closed,宿主机Docker端口映射错误
+connection closed,Docker容器网络模式配置错误
+connection closed,宿主机防火墙未放行容器端口
+connection closed,Kubernetes服务发现地址写错
+connection closed,负载均衡器健康检查配置错误
+connection closed,NAT网关会话超时
+connection closed,VPN路由表缺失导致网络不可达
+connection closed,IPv6地址解析失败而回退IPv4超时
+connection closed,DNS轮询返回故障节点
+connection closed,MTU不匹配导致大包被丢弃
+connection closed,交换机ACL限制AMQP端口
+connection closed,SELinux策略阻止Erlang绑定端口
+connection closed,AppArmor配置限制文件访问
+connection closed,系统内存不足触发OOM Killer
+connection closed,磁盘只读导致Mnesia事务失败
+connection closed,日志文件系统inode耗尽无法写日志
+connection closed,容器cgroup内存上限触发Erlang GC异常
+connection closed,宿主机/proc/sys/net/core/somaxconn过小
+connection closed,Erlang进程数达到vm_max_processes
+connection closed,表空间碎片过多导致Mnesia锁等待超时
+connection closed,镜像队列同步阻塞新连接
+connection closed,流控机制触发阻塞生产者连接
+connection closed,集群脑裂后节点拒绝外部连接
+connection closed,节点名称与主机名解析不一致
+connection closed,插件rabbitmq_mqtt端口冲突
+connection closed,管理界面端口15672被占用导致启动失败
+connection closed,epmd 4369端口被占用导致节点无法通信
+connection closed,FQDN过长超过Erlang节点名长度限制
+connection closed,时区不一致导致TLS证书验证失败
+connection closed,系统时钟跳变触发SSL会话过期
+connection closed,Windows下长路径导致cookie文件读取失败
+connection closed,MacOS升级后OpenSSL版本不兼容
+connection closed,.erlang.cookie文件权限过大被Erlang拒绝
+connection closed,环境变量ERLANG_COOKIE与文件不一致
+connection closed,配置文件中loopback_users禁止远程guest
+connection closed,默认guest用户仅允许localhost连接
+connection closed,自定义配置文件未加载导致参数不生效
+connection closed,环境变量RABBITMQ_CONFIG_FILE路径错误
+connection closed,JSON格式配置文件语法错误导致启动失败
+connection closed,容器挂载外部config文件权限为root导致无法读取
+connection closed,systemd单元文件LimitNOFILE过低
+connection closed,容器重启后IP变化导致集群节点无法找到
+connection closed,K8s StatefulSet未使用headless service导致DNS解析错误

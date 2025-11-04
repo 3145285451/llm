@@ -126,37 +126,42 @@ class TopKLogSystem:
     
     
     
-    #函数用来读取文档,添加可读取文档类型
+    #函数用来读取文档,添加可读取文档类型,并支持遍历子文件夹下的文件
     @staticmethod
     def _load_documents(data_path: str) -> List[Document]:
+        """
+        递归遍历 data_path 下所有文件（包括子文件夹），加载支持的文档类型。
+        """
         if not os.path.exists(data_path):
             logger.warning(f"数据路径不存在: {data_path}")
             return []
         documents = []
-        for file in os.listdir(data_path):
-            ext = os.path.splitext(file)[1]
-            if ext not in [".txt", ".md", ".json", ".jsonl", ".csv", ".log", ".xml", ".yaml", ".yml", ".docx", ".pdf"]:
-                continue
-            file_path = f"{data_path}/{file}"
-            try:
-                if ext == ".csv":
-                    documents.extend(TopKLogSystem._process_csv(file_path))
-                elif ext in [".json", ".jsonl"]:
-                    documents.extend(TopKLogSystem._process_json(file_path, ext))
-                elif ext in [".yaml", ".yml"]:
-                    documents.extend(TopKLogSystem._process_yaml(file_path))
-                elif ext == ".xml":
-                    documents.extend(TopKLogSystem._process_xml(file_path))
-                elif ext == ".log":
-                    documents.extend(TopKLogSystem._process_log(file_path))
-                elif ext == ".docx":
-                    documents.extend(TopKLogSystem._process_docx(file_path))
-                elif ext == ".pdf":
-                    documents.extend(TopKLogSystem._process_pdf(file_path))
-                else:
-                    documents.extend(TopKLogSystem._process_text(file_path))
-            except Exception as e:
-                logger.error(f"加载文档失败 {file_path}: {e}")
+        # 使用 os.walk 递归遍历所有文件
+        for root, dirs, files in os.walk(data_path):
+            for file in files:
+                ext = os.path.splitext(file)[1]
+                if ext not in [".txt", ".md", ".json", ".jsonl", ".csv", ".log", ".xml", ".yaml", ".yml", ".docx", ".pdf"]:
+                    continue
+                file_path = os.path.join(root, file)
+                try:
+                    if ext == ".csv":
+                        documents.extend(TopKLogSystem._process_csv(file_path))
+                    elif ext in [".json", ".jsonl"]:
+                        documents.extend(TopKLogSystem._process_json(file_path, ext))
+                    elif ext in [".yaml", ".yml"]:
+                        documents.extend(TopKLogSystem._process_yaml(file_path))
+                    elif ext == ".xml":
+                        documents.extend(TopKLogSystem._process_xml(file_path))
+                    elif ext == ".log":
+                        documents.extend(TopKLogSystem._process_log(file_path))
+                    elif ext == ".docx":
+                        documents.extend(TopKLogSystem._process_docx(file_path))
+                    elif ext == ".pdf":
+                        documents.extend(TopKLogSystem._process_pdf(file_path))
+                    else:
+                        documents.extend(TopKLogSystem._process_text(file_path))
+                except Exception as e:
+                    logger.error(f"加载文档失败 {file_path}: {e}")
         return documents
 
     #各种文件类型的处理函数
