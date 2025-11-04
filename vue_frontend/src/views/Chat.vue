@@ -12,6 +12,10 @@
       <div class="user-info">
         <div class="user-actions">
           <!-- (调整) 按钮样式和图标 -->
+          <button class="secondary" @click="exportToPDF">
+            <download-icon class="icon-small" />
+            导出为HTML文件
+          </button>
           <button class="secondary" @click="handleClearHistory">
             <trash-icon class="icon-small" />
             清空当前会话
@@ -89,7 +93,169 @@ import SessionList from '../components/SessionList.vue';
 import ChatMessage from '../components/ChatMessage.vue';
 import ChatInput from '../components/ChatInput.vue';
 // (新增) 导入图标
-import { TrashIcon, LogoutIcon } from 'vue-tabler-icons';
+import { DownloadIcon,TrashIcon, LogoutIcon, } from 'vue-tabler-icons';
+// (修改) 导出为HTML功能，利用浏览器打印功能生成PDF
+const exportToPDF = async () => {
+  try {
+    // 更改按钮文字显示导出状态
+    const exportButton = document.querySelector('.user-actions button:first-child');
+    const originalButtonText = exportButton.textContent;
+    exportButton.textContent = '导出中...';
+    exportButton.disabled = true;
+    
+    // 获取会话信息
+    const sessionName = currentSession.value;
+    const exportTime = new Date().toLocaleString('zh-CN');
+    const currentMessages = messages.value;
+    
+    // 构建HTML内容，调整字体大小
+    let htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>DeepSeek-KAI 聊天记录 - ${sessionName}</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                font-size: 14px; /* 减小整体字体大小 */
+            }
+            .header {
+                text-align: center;
+                border-bottom: 2px solid #1a73e8;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }
+            .header h1 {
+                color: #1a73e8;
+                margin-bottom: 10px;
+                font-size: 24px; /* 调整标题字体大小 */
+            }
+            .header h2 {
+                color: #5f6368;
+                margin: 0 0 5px 0;
+                font-weight: normal;
+                font-size: 18px; /* 调整子标题字体大小 */
+            }
+            .header p {
+                color: #80868b;
+                margin: 0;
+                font-size: 14px; /* 调整时间字体大小 */
+            }
+            .message {
+                margin-bottom: 20px;
+                padding: 12px;
+                border-radius: 6px;
+            }
+            .user-message {
+                background-color: #e8f0fe;
+                border-left: 3px solid #1a73e8;
+            }
+            .ai-message {
+                background-color: #f1f8e9;
+                border-left: 3px solid #34a853;
+            }
+            .message-header {
+                font-weight: bold;
+                margin-bottom: 8px;
+                font-size: 15px; /* 调整消息头部字体大小 */
+            }
+            .user-header {
+                color: #1a73e8;
+            }
+            .ai-header {
+                color: #34a853;
+            }
+            .timestamp {
+                color: #80868b;
+                font-size: 12px; /* 调整时间戳字体大小 */
+            }
+            .content {
+                white-space: pre-wrap;
+                font-size: 14px; /* 调整内容字体大小 */
+                line-height: 1.5;
+            }
+            @media print {
+                body {
+                    padding: 10px;
+                }
+                .message {
+                    page-break-inside: avoid;
+                    margin-bottom: 15px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>DeepSeek-KAI 聊天记录</h1>
+            <h2>会话: ${sessionName}</h2>
+            <p>导出时间: ${exportTime}</p>
+        </div>
+    `;
+    
+    // 添加消息内容
+    currentMessages.forEach((msg, index) => {
+      const role = msg.isUser ? '用户' : 'AI助手';
+      const time = new Date(msg.timestamp).toLocaleString('zh-CN');
+      const contentText = msg.content || '';
+      
+      htmlContent += `
+        <div class="message ${msg.isUser ? 'user-message' : 'ai-message'}">
+            <div class="message-header ${msg.isUser ? 'user-header' : 'ai-header'}">
+                ${role} <span class="timestamp">(${time})</span>
+            </div>
+            <div class="content">${contentText}</div>
+        </div>
+      `;
+    });
+    
+    htmlContent += `
+    </body>
+    </html>
+    `;
+    
+    // 创建 Blob 对象
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    
+    // 创建下载链接
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sessionName}_聊天记录_${new Date().getTime()}.html`;
+    
+    // 触发下载
+    document.body.appendChild(a);
+    a.click();
+    
+    // 清理
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    // 恢复按钮状态
+    exportButton.textContent = originalButtonText;
+    exportButton.disabled = false;
+    
+    // 提示用户
+    alert('聊天记录已导出为HTML文件，您可以使用浏览器打开该文件并打印为PDF');
+    
+  } catch (error) {
+    console.error('导出失败:', error);
+    alert('导出失败，请查看控制台了解详细信息');
+    
+    // 恢复按钮状态
+    const exportButton = document.querySelector('.user-actions button:first-child');
+    if (exportButton) {
+      exportButton.textContent = '导出为HTML文件';
+      exportButton.disabled = false;
+    }
+  }
+};
 
 const store = useStore();
 const router = useRouter();
