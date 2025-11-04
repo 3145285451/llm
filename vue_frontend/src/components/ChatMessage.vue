@@ -2,156 +2,69 @@
   <div class="message" :class="{ 'user-message': isUser }">
     <div class="message-avatar">
       <div :class="isUser ? 'user-avatar' : 'bot-avatar'">
-        {{ isUser ? '用户' : 'AI' }}
+        <user-icon v-if="isUser" class="icon-avatar" />
+        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="icon-avatar bot-logo">
+          <title>DeepSeek</title>
+          <path d="M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z" fill="#4D6BFE"></path>
+        </svg>
       </div>
     </div>
-    <div class="message-content">
-      
-      <div v-if="showLikeToast" class="feedback-toast like">
-        感谢您的支持！
-      </div>
-
-      <div v-if="showDislikeModal" class="feedback-modal-overlay">
-        <div class="feedback-modal">
-          <p>感谢您的反馈，已提交至工作人员。是否需要重新生成回答？</p>
-          <div class="feedback-modal-actions">
-            <button class="secondary" @click="closeDislikeModal">取消</button>
-            <button class="primary" @click="handleDislikeRegenerate">
-              <refresh-icon class="icon-small-inline" />
-              重新生成
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <div 
-        v-if="!isUser && thinkProcess" 
-        class="think-container"
-      >
+    
+    <!-- (调整) 消息内容和操作的包装器 -->
+    <div class="message-wrapper">
+      <!-- (调整) 消息内容气泡 -->
+      <div class="message-content" :class="{ 'user-content': isUser }">
+        
+        <!-- (调整) 思考过程 -->
         <div 
-          class="think-header" 
-          @click="showthinkProcess = !showthinkProcess"
+          v-if="!isUser && thinkProcess" 
+          class="think-container"
         >
-          <div class="think-title">
-            <brain-icon class="icon" />
-            <span>{{ showthinkProcess ? '隐藏思考过程' : '查看思考过程' }}</span>
-          </div>
-          <div class="think-meta">
-            <span>思考耗时: {{ displayTime }}s</span>
-            <chevron-down 
-              v-if="!showthinkProcess" 
-              class="icon chevron"
-            />
-            <chevron-up 
-              v-else 
-              class="icon chevron"
-            />
-          </div>
-        </div>
-        <div 
-          v-if="showthinkProcess" 
-          ref="thinkContentRef"
-          class="think-content" 
-          v-html="renderedthinkProcess"
-        >
-        </div>
-      </div>
-
-      <div v-if="isUser" class="message-text user-message-text-wrapper">
-        <div v-if="content" class="user-action-buttons">
-          <!-- 复制按钮 -->
-          <button
-            class="user-copy-btn"
-            :title="userCopied ? '已复制' : '复制我的提问'"
-            @click="copyUserContent"
-            :disabled="userCopied"
+          <div 
+            class="think-header" 
+            @click="showthinkProcess = !showthinkProcess"
+            :title="showthinkProcess ? '收起' : '查看思考过程'"
           >
-            <check-icon v-if="userCopied" class="icon-small success" />
-            <copy-icon v-else class="icon-small" />
-          </button>
-          <!-- 编辑按钮 -->
-          <button
-            class="user-edit-btn"
-            title="编辑并重新生成"
-            @click="handleEdit"
-          >
-            <pencil-icon class="icon-small" />
-          </button>
+            <div class="think-title">
+              <brain-icon class="icon-small" />
+              <span>思考过程</span>
+            </div>
+            <div class="think-meta">
+              <span>耗时: {{ displayTime }}s</span>
+              <chevron-down 
+                class="icon-small chevron"
+                :class="{ 'expanded': showthinkProcess }"
+              />
+            </div>
+          </div>
+          <!-- (新增) 折叠动画 -->
+          <div v-if="showthinkProcess" class="think-content-wrapper">
+            <div 
+              ref="thinkContentRef"
+              class="think-content" 
+              v-html="renderedthinkProcess"
+            >
+            </div>
+          </div>
         </div>
-        <div class="user-message-content">{{ content }}</div>
-      </div>
-      <div v-else ref="messageTextRef" class="message-text" v-html="renderedMarkdown">
-      </div>
 
-      <!-- HTML 预览模态框 -->
-      <div v-if="showHtmlPreview" class="html-preview-modal-overlay" @click.self="showHtmlPreview = false">
-        <div class="html-preview-modal">
-          <div class="html-preview-header">
-            <h3>HTML 预览</h3>
-            <button class="html-preview-close-btn" @click="showHtmlPreview = false" title="关闭">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-          <div class="html-preview-content">
-            <iframe 
-              :srcdoc="htmlPreviewContent" 
-              frameborder="0"
-              sandbox="allow-scripts allow-same-origin allow-forms"
-              class="html-preview-iframe"
-            ></iframe>
-          </div>
+        <!-- (调整) 用户消息内容 -->
+        <div v-if="isUser" class="message-text user-message-text">
+          {{ content }}
+        </div>
+        <!-- (调整) AI 消息内容 -->
+        <div v-else ref="messageTextRef" class="message-text" v-html="renderedMarkdown">
         </div>
       </div>
 
-      <!-- JavaScript 运行结果模态框 -->
-      <div v-if="showJsResult" class="js-result-modal-overlay" @click.self="showJsResult = false">
-        <div class="js-result-modal">
-          <div class="js-result-header">
-            <h3>JavaScript 运行结果</h3>
-            <button class="js-result-close-btn" @click="showJsResult = false" title="关闭">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-          <div class="js-result-content">
-            <pre class="js-result-pre">{{ jsResultContent }}</pre>
-          </div>
-        </div>
-      </div>
-
-      <div class="message-time">
-        <!-- 将所有按钮包裹在 .message-actions 中 -->
+      <!-- (调整) 消息操作和时间戳 -->
+      <div class="message-footer">
         <div class="message-actions">
-          <!-- 点赞/点踩按钮 -->
-          <button
-            v-if="!isUser && content"
-            class="copy-btn feedback-btn"
-            :class="{ 'liked': feedbackState === 'liked' }"
-            title="点赞"
-            @click="handleLike"
-            :disabled="feedbackState"
-          >
-            <thumb-up-icon class="icon-small" />
-          </button>
-          <button
-            v-if="!isUser && content"
-            class="copy-btn feedback-btn"
-            :class="{ 'disliked': feedbackState === 'disliked' }"
-            title="点踩"
-            @click="handleDislike"
-            :disabled="feedbackState"
-          >
-            <thumb-down-icon class="icon-small" />
-          </button>
+          <!-- 用户消息：编辑按钮 -->
 
           <button
-            v-if="!isUser && content"
-            class="copy-btn"
+            v-if="isUser && content && !loading"
+            class="icon-button"
             :title="copied ? '已复制' : '复制内容'"
             @click="copyContent"
             :disabled="copied"
@@ -161,17 +74,111 @@
           </button>
 
           <button
+            v-if="isUser && content && !loading"
+            class="icon-button"
+            title="编辑并重新提问"
+            @click="handleEdit"
+          >
+            <pencil-icon class="icon-small" />
+          </button>
+          
+          <!-- AI 消息：反馈和复制按钮 -->
+          <template v-if="!isUser && content && !loading">
+            <button
+              class="icon-button"
+              :class="{ 'liked': feedbackState === 'liked' }"
+              title="点赞"
+              @click="handleLike"
+              :disabled="!!feedbackState"
+            >
+              <thumb-up-icon class="icon-small" />
+            </button>
+            <button
+              class="icon-button"
+              :class="{ 'disliked': feedbackState === 'disliked' }"
+              title="点踩"
+              @click="handleDislike"
+              :disabled="!!feedbackState"
+            >
+              <thumb-down-icon class="icon-small" />
+            </button>
+            <button
+              class="icon-button"
+              :title="copied ? '已复制' : '复制内容'"
+              @click="copyContent"
+              :disabled="copied"
+            >
+              <check-icon v-if="copied" class="icon-small success" />
+              <copy-icon v-else class="icon-small" />
+            </button>
+          </template>
+          
+          <!-- AI 消息：重新生成按钮 -->
+          <button
             v-if="allowRegenerate"
-            class="copy-btn regenerate-btn" 
+            class="icon-button" 
             title="重新生成"
             @click="$emit('regenerate')"
           >
             <refresh-icon class="icon-small" />
           </button>
         </div>
-        <!-- 将时间戳单独放在 span 中，以便 flex 布局 -->
+        
+        <!-- (调整) 反馈弹窗 -->
+        <div v-if="showLikeToast" class="feedback-toast like">
+          感谢您的支持！
+        </div>
+
+        <div v-if="showDislikeModal" class="feedback-modal-overlay">
+          <div class="feedback-modal card">
+            <p>感谢您的反馈。是否需要重新生成回答？</p>
+            <div class="feedback-modal-actions">
+              <button class="secondary" @click="closeDislikeModal">取消</button>
+              <button class="primary" @click="handleDislikeRegenerate">
+                <refresh-icon class="icon-small-inline" />
+                重新生成
+              </button>
+            </div>
+          </div>
+        </div>
+
         <span class="timestamp-text">{{ formatTime(timestamp) }}</span>
       </div>
+
+      <!-- (调整) HTML/JS 模态框样式 -->
+      <div v-if="showHtmlPreview" class="preview-modal-overlay" @click.self="showHtmlPreview = false">
+        <div class="preview-modal card">
+          <div class="preview-header">
+            <h3>HTML 预览</h3>
+            <button class="icon-button" @click="showHtmlPreview = false" title="关闭">
+              <x-icon class="icon-small" />
+            </button>
+          </div>
+          <div class="preview-content">
+            <iframe 
+              :srcdoc="htmlPreviewContent" 
+              frameborder="0"
+              sandbox="allow-scripts allow-same-origin allow-forms"
+              class="preview-iframe"
+            ></iframe>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="showJsResult" class="preview-modal-overlay" @click.self="showJsResult = false">
+        <div class="preview-modal card">
+          <div class="preview-header">
+            <h3>JavaScript 运行结果</h3>
+            <button class="icon-button" @click="showJsResult = false" title="关闭">
+              <x-icon class="icon-small" />
+            </button>
+          </div>
+          <div class="preview-content js-result-content">
+            <pre class="js-result-pre">{{ jsResultContent }}</pre>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
@@ -179,79 +186,49 @@
 <script setup>
 import { computed, defineProps, ref, watch, onUnmounted, defineEmits, onMounted, nextTick } from 'vue';
 import { marked } from 'marked';
-// 导入新图标
 import { 
   BrainIcon, ChevronDownIcon, ChevronUpIcon, 
   CopyIcon, CheckIcon, RefreshIcon, 
   ThumbUpIcon, ThumbDownIcon,
-  PlayerPlayIcon,
-  PencilIcon
+  PlayerPlayIcon, PencilIcon, UserIcon, XIcon
 } from 'vue-tabler-icons';
 
+// ... (props 和 emits 定义保持不变) ...
 const props = defineProps({
-  isUser: {
-    type: Boolean,
-    required: true
-  },
-  content: {
-    type: String,
-    required: true
-  },
-  timestamp: {
-    type: Date,
-    required: true
-  },
-  thinkProcess: {
-    type: String,
-    default: null
-  },
-  duration: {
-    type: Number,
-    default: null
-  },
-  allowRegenerate: {
-    type: Boolean,
-    default: false
-  },
-  // 消息ID
-  messageId: {
-    type: [String, Number],
-    default: null
-  }
+  isUser: { type: Boolean, required: true },
+  content: { type: String, required: true },
+  timestamp: { type: Date, required: true },
+  thinkProcess: { type: String, default: null },
+  duration: { type: Number, default: null },
+  allowRegenerate: { type: Boolean, default: false },
+  messageId: { type: [String, Number], default: null }
 });
 
 const emits = defineEmits(['regenerate', 'edit']);
 
 const showthinkProcess = ref(false);
 
-// 反馈状态
-const feedbackState = ref(null); // null, 'liked', 'disliked'
+const feedbackState = ref(null); 
 const showLikeToast = ref(false);
 const showDislikeModal = ref(false);
 
-// 点赞处理
 const handleLike = () => {
   if (feedbackState.value) return;
   feedbackState.value = 'liked';
   showLikeToast.value = true;
-  setTimeout(() => {
-    showLikeToast.value = false;
-  }, 2000); // 2秒后隐藏提示
+  setTimeout(() => { showLikeToast.value = false; }, 2000);
 };
 
-// 点踩处理
 const handleDislike = () => {
   if (feedbackState.value) return;
   feedbackState.value = 'disliked';
   showDislikeModal.value = true;
 };
 
-// 关闭点踩弹窗
 const closeDislikeModal = () => {
   showDislikeModal.value = false;
 };
 
-// 处理点踩后的重新生成
 const handleDislikeRegenerate = () => {
   emits('regenerate');
   showDislikeModal.value = false;
@@ -291,33 +268,15 @@ const copyContent = async () => {
   try {
     await navigator.clipboard.writeText(props.content);
     copied.value = true;
-    setTimeout(() => {
-      copied.value = false;
-    }, 2000); 
+    setTimeout(() => { copied.value = false; }, 2000); 
   } catch (err) {
     console.error('Failed to copy text: ', err);
   }
 };
 
-// 用户消息复制状态
-const userCopied = ref(false);
-const copyUserContent = async () => {
-  if (!props.content || userCopied.value) return;
-  try {
-    await navigator.clipboard.writeText(props.content);
-    userCopied.value = true;
-    setTimeout(() => {
-      userCopied.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy user message: ', err);
-  }
-};
-
-// 处理编辑按钮点击
+// (移除) 用户消息复制，合并到 handleEdit
 const handleEdit = () => {
   if (!props.content || !props.messageId) return;
-  // 发出编辑事件，传递消息ID和内容
   emits('edit', {
     messageId: props.messageId,
     content: props.content
@@ -350,156 +309,122 @@ const renderedthinkProcess = computed(() => {
 });
 
 const formatTime = (date) => {
-  return new Date(date).toLocaleTimeString();
+  return new Date(date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 };
 
-// 代码块复制功能
+// ... (代码块复制、HTML/JS 预览功能) ...
 const messageTextRef = ref(null);
 const thinkContentRef = ref(null);
-const codeBlockCopiedStates = ref(new Map()); // 存储每个代码块的复制状态
+const codeBlockCopiedStates = ref(new Map());
 
-// HTML 预览模态框状态
 const showHtmlPreview = ref(false);
 const htmlPreviewContent = ref('');
-
-// JavaScript 运行结果模态框状态
 const showJsResult = ref(false);
 const jsResultContent = ref('');
 
-// 为代码块添加复制按钮
 const addCodeBlockCopyButtons = (container) => {
   if (!container) return;
   
-  // 查找所有代码块
   const codeBlocks = container.querySelectorAll('pre');
   
   codeBlocks.forEach((pre, index) => {
-    // 检查是否已经添加过按钮（检查父元素是否是 wrapper）
     if (pre.parentElement && pre.parentElement.classList.contains('code-block-wrapper')) return;
     
-    // 获取代码内容
     const codeElement = pre.querySelector('code');
     const codeText = codeElement ? codeElement.innerText || codeElement.textContent : pre.innerText || pre.textContent;
     
-    // 检测代码块语言
     let isHtml = false;
     let isJavascript = false;
     if (codeElement) {
       const codeClasses = codeElement.className || '';
-      // marked.js 通常生成 "language-html" 类名
-      isHtml = codeClasses.includes('language-html') || 
-               codeClasses.includes('lang-html') ||
-               codeElement.classList.contains('language-html') ||
-               codeElement.classList.contains('lang-html');
-      
-      // 检测 JavaScript 代码块
+      isHtml = codeClasses.includes('language-html') || codeClasses.includes('lang-html');
       isJavascript = codeClasses.includes('language-javascript') ||
                      codeClasses.includes('lang-javascript') ||
                      codeClasses.includes('language-js') ||
-                     codeClasses.includes('lang-js') ||
-                     codeElement.classList.contains('language-javascript') ||
-                     codeElement.classList.contains('lang-javascript') ||
-                     codeElement.classList.contains('language-js') ||
-                     codeElement.classList.contains('lang-js');
+                     codeClasses.includes('lang-js');
     }
     
-    // 创建包装器
     const wrapper = document.createElement('div');
     wrapper.className = 'code-block-wrapper';
     
-    // 将 pre 元素移动到包装器中
     const parent = pre.parentNode;
     parent.insertBefore(wrapper, pre);
     wrapper.appendChild(pre);
     
-    // 创建按钮容器
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'code-block-buttons';
     
-    // 创建复制按钮
+    // (调整) 复制按钮样式
     const copyBtn = document.createElement('button');
-    copyBtn.className = 'code-block-copy-btn';
+    copyBtn.className = 'code-block-btn code-copy-btn';
     copyBtn.title = '复制代码';
     copyBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
       </svg>
+      <span>复制</span>
     `;
     
-    // 创建成功图标（复制成功后显示）
     const checkIcon = document.createElement('span');
-    checkIcon.className = 'code-block-check-icon';
+    checkIcon.className = 'code-block-btn code-check-icon';
     checkIcon.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="20 6 9 17 4 12"></polyline>
       </svg>
+      <span>已复制</span>
     `;
     checkIcon.style.display = 'none';
     
     buttonContainer.appendChild(copyBtn);
     buttonContainer.appendChild(checkIcon);
     
-    // 如果是 HTML 代码块，添加运行按钮
     if (isHtml) {
       const runBtn = document.createElement('button');
-      runBtn.className = 'code-block-run-btn';
+      runBtn.className = 'code-block-btn code-run-btn';
       runBtn.title = '运行 HTML';
       runBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="5 3 19 12 5 21 5 3"></polygon>
         </svg>
+        <span>运行</span>
       `;
-      
       runBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        // 打开 HTML 预览模态框
         htmlPreviewContent.value = codeText;
         showHtmlPreview.value = true;
       });
-      
       buttonContainer.appendChild(runBtn);
     }
     
-    // 如果是 JavaScript 代码块，添加运行按钮
     if (isJavascript) {
       const runBtn = document.createElement('button');
-      runBtn.className = 'code-block-run-btn';
+      runBtn.className = 'code-block-btn code-run-btn';
       runBtn.title = '运行 JavaScript';
       runBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="5 3 19 12 5 21 5 3"></polygon>
         </svg>
+        <span>运行</span>
       `;
-      
       runBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        // 执行 JavaScript 代码并显示结果
         executeJavaScript(codeText);
       });
-      
       buttonContainer.appendChild(runBtn);
     }
     
     wrapper.appendChild(buttonContainer);
     
-    // 添加点击事件
     copyBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      
       try {
         await navigator.clipboard.writeText(codeText);
-        
-        // 显示成功状态
         copyBtn.style.display = 'none';
-        checkIcon.style.display = 'block';
-        
-        // 存储状态
+        checkIcon.style.display = 'flex';
         codeBlockCopiedStates.value.set(index, true);
-        
-        // 2秒后恢复
         setTimeout(() => {
-          copyBtn.style.display = 'block';
+          copyBtn.style.display = 'flex';
           checkIcon.style.display = 'none';
           codeBlockCopiedStates.value.set(index, false);
         }, 2000);
@@ -510,147 +435,75 @@ const addCodeBlockCopyButtons = (container) => {
   });
 };
 
-// 监听 Markdown 渲染变化
 watch(() => renderedMarkdown.value, () => {
   if (!props.isUser) {
-    nextTick(() => {
-      addCodeBlockCopyButtons(messageTextRef.value);
-    });
+    nextTick(() => { addCodeBlockCopyButtons(messageTextRef.value); });
   }
 }, { immediate: true });
 
-// 监听思考过程渲染变化
 watch(() => [renderedthinkProcess.value, showthinkProcess.value], () => {
   if (showthinkProcess.value && thinkContentRef.value) {
-    nextTick(() => {
-      addCodeBlockCopyButtons(thinkContentRef.value);
-    });
+    nextTick(() => { addCodeBlockCopyButtons(thinkContentRef.value); });
   }
 }, { immediate: true });
 
-// 执行 JavaScript 代码并捕获结果
+// ... (executeJavaScript 保持不变) ...
 const executeJavaScript = (code) => {
   const logs = [];
   let returnValue = undefined;
   let error = null;
-  
-  // 保存原始的 console.log
   const oldLog = console.log;
   const oldError = console.error;
   const oldWarn = console.warn;
   const oldInfo = console.info;
   
   try {
-    // 拦截 console.log 等方法
-    console.log = (...args) => {
-      logs.push(`[LOG] ${args.map(arg => {
-        if (typeof arg === 'object') {
-          try {
-            return JSON.stringify(arg, null, 2);
-          } catch (e) {
-            return String(arg);
-          }
-        }
-        return String(arg);
+    const logHelper = (type) => (...args) => {
+      logs.push(`[${type}] ${args.map(arg => {
+        try {
+          return typeof arg === 'object' ? JSON.stringify(arg) : String(arg);
+        } catch (e) { return String(arg); }
       }).join(' ')}`);
     };
+    console.log = logHelper('LOG');
+    console.error = logHelper('ERROR');
+    console.warn = logHelper('WARN');
+    console.info = logHelper('INFO');
     
-    console.error = (...args) => {
-      logs.push(`[ERROR] ${args.map(arg => {
-        if (typeof arg === 'object') {
-          try {
-            return JSON.stringify(arg, null, 2);
-          } catch (e) {
-            return String(arg);
-          }
-        }
-        return String(arg);
-      }).join(' ')}`);
-    };
-    
-    console.warn = (...args) => {
-      logs.push(`[WARN] ${args.map(arg => {
-        if (typeof arg === 'object') {
-          try {
-            return JSON.stringify(arg, null, 2);
-          } catch (e) {
-            return String(arg);
-          }
-        }
-        return String(arg);
-      }).join(' ')}`);
-    };
-    
-    console.info = (...args) => {
-      logs.push(`[INFO] ${args.map(arg => {
-        if (typeof arg === 'object') {
-          try {
-            return JSON.stringify(arg, null, 2);
-          } catch (e) {
-            return String(arg);
-          }
-        }
-        return String(arg);
-      }).join(' ')}`);
-    };
-    
-    // 使用 new Function() 执行代码
     const func = new Function(code);
     returnValue = func();
-    
   } catch (e) {
     error = e;
   } finally {
-    // 恢复原始的 console 方法
     console.log = oldLog;
     console.error = oldError;
     console.warn = oldWarn;
     console.info = oldInfo;
   }
   
-  // 格式化输出结果
   let resultText = '';
-  
-  // 添加 console 输出
   if (logs.length > 0) {
-    resultText += '=== Console 输出 ===\n';
-    resultText += logs.join('\n') + '\n\n';
+    resultText += '=== Console 输出 ===\n' + logs.join('\n') + '\n\n';
   }
-  
-  // 添加返回值
   if (returnValue !== undefined) {
     resultText += '=== 返回值 ===\n';
-    if (typeof returnValue === 'object') {
-      try {
-        resultText += JSON.stringify(returnValue, null, 2) + '\n\n';
-      } catch (e) {
-        resultText += String(returnValue) + '\n\n';
-      }
-    } else {
-      resultText += String(returnValue) + '\n\n';
-    }
+    try {
+      resultText += typeof returnValue === 'object' ? JSON.stringify(returnValue, null, 2) : String(returnValue);
+    } catch(e) { resultText += String(returnValue); }
+    resultText += '\n\n';
   }
-  
-  // 添加错误信息
   if (error) {
-    resultText += '=== 错误信息 ===\n';
-    resultText += error.toString() + '\n';
-    if (error.stack) {
-      resultText += '\n堆栈跟踪:\n' + error.stack;
-    }
+    resultText += '=== 错误信息 ===\n' + error.toString() + (error.stack ? '\n\n' + error.stack : '');
   }
-  
-  // 如果没有输出，显示提示
   if (!resultText.trim()) {
     resultText = '代码执行完成，无输出。';
   }
   
-  // 显示结果
   jsResultContent.value = resultText;
   showJsResult.value = true;
 };
 
-// 组件挂载后也执行一次
+
 onMounted(() => {
   if (!props.isUser) {
     nextTick(() => {
@@ -664,13 +517,12 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* .message 增加 position: relative */
+/* (调整) 基础布局 */
 .message {
-  position: relative; 
   display: flex;
-  margin-bottom: 1rem;
-  max-width: 80%;
-  overflow: visible; /* 确保按钮不被裁剪 */
+  gap: 0.75rem; /* 头像和内容的间距 */
+  max-width: 90%; /* (调整) 消息最大宽度 */
+  overflow: visible;
 }
 
 .message.user-message {
@@ -678,153 +530,100 @@ onMounted(() => {
   flex-direction: row-reverse;
 }
 
+/* (调整) 头像样式 */
 .message-avatar {
-  margin-right: 0.5rem;
   flex-shrink: 0;
-}
-
-.user-message .message-avatar {
-  margin-right: 0;
-  margin-left: 0.5rem;
+  margin-top: 0.25rem; /* (新增) 微调对齐 */
 }
 
 .user-avatar, .bot-avatar {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.25rem; /* (调整) 尺寸 */
+  height: 2.25rem;
   border-radius: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
   font-weight: bold;
-  font-size: 0.875rem;
 }
 
 .user-avatar {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: var(--primary-light);
+  color: var(--primary-dark);
 }
 
 .bot-avatar {
-  background-color: var(--secondary-color);
-  color: white;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--primary-color);
 }
 
-.message-content {
+.icon-avatar {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.bot-logo {
+  stroke-width: 2.5;
+}
+
+/* (新增) 消息包装器 */
+.message-wrapper {
+  display: flex;
+  flex-direction: column;
   min-width: 100px;
+  overflow: visible; /* 确保弹窗可见 */
+  width: 100%;
+}
+
+/* (调整) 消息气泡 */
+.message-content {
   padding: 0; 
   border-radius: var(--radius);
-  position: relative; /* 设为 relative 以便定位弹窗 */
-  width: 100%;
-  overflow: visible; /* 确保按钮不被裁剪 */
+  position: relative;
+  border: 1px solid var(--border-color);
+  background-color: var(--card-bg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden; /* (新增) 确保 think-container 圆角 */
 }
 
-.message:not(.user-message) .message-content {
-  background-color: var(--bot-message);
+.message-content.user-content {
+  background-color: #f0f4f9;
+  border: none;
+  box-shadow: none;
 }
 
-.user-message .message-content {
-  background-color: var(--user-message);
-  padding: 0.75rem 1rem; 
-}
-
+/* (调整) 消息文本 */
 .message-text {
   padding: 0.75rem 1rem;
-  margin-bottom: 0.25rem;
-  line-height: 1.5;
-}
-
-.user-message .message-text {
-  padding: 0; 
-  white-space: pre-wrap;
-}
-
-/* 用户消息文本包装器 */
-.user-message-text-wrapper {
-  position: relative;
-  padding: 0.75rem 1rem;
-  overflow: visible; /* 确保按钮不被裁剪 */
-}
-
-.user-message-content {
-  white-space: pre-wrap;
+  line-height: 1.6;
   word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
-/* 用户消息操作按钮容器 - 定位到气泡左下方 */
-.user-action-buttons {
-  position: absolute;
-  bottom: -5rem; /* 距离消息框底部 */
-  left: -1rem; /* 距离消息框左侧 */
-  display: flex;
-  flex-direction: row; /* 按钮水平排列 */
-  gap: 0.3rem; /* 按钮之间的间距 */
-  z-index: 10;
+.user-message-text {
+  white-space: pre-wrap;
+  color: var(--user-message-text);
 }
 
-/* 用户消息复制按钮 */
-.user-copy-btn,
-.user-edit-btn {
-  background: none;
-  border: none;
-  padding: 0.25rem;
-  border-radius: var(--radius);
-  cursor: pointer;
-  color: var(--text-secondary);
-  opacity: 0.6;
-  transition: all 0.2s ease;
-}
-
-.user-copy-btn:hover:not(:disabled),
-.user-edit-btn:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-  opacity: 1;
-}
-
-/* 调整 .message-time 的布局 */
-.message-time {
-  display: flex;
-  flex-wrap: wrap; /* 允许按钮和时间戳换行 */
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem; /* 增加按钮和时间戳之间的间距 */
-  padding: 0 1rem 0.5rem;
-}
-
-/* 用户消息的时间布局 */
-.user-message .message-time {
-  justify-content: flex-end; /* 按钮和时间戳靠右 */
-  flex-wrap: nowrap; /* 禁止换行 */
-  gap: 0.5rem;
-  margin-top: 1rem; /* 与消息框的间距 */
-  padding: 0; /* 移除内边距 */
-}
-
-/* 包裹按钮的 flex 容器 */
-.message-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-
+/* (调整) 思考过程 */
 .think-container {
-  background-color: rgba(0, 0, 0, 0.03); 
+  background-color: transparent; 
   border-bottom: 1px solid var(--border-color);
-  border-top-left-radius: var(--radius);
-  border-top-right-radius: var(--radius);
+}
+.user-content .think-container {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .think-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem 1rem; 
+  padding: 0.625rem 1rem; 
   cursor: pointer;
   user-select: none;
+  background-color: var(--bg-color);
 }
-
 .think-header:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--border-color);
 }
 
 .think-title {
@@ -832,6 +631,10 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+.think-title .icon-small {
   color: var(--text-secondary);
 }
 
@@ -840,114 +643,92 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-.icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  flex-shrink: 0; 
+  color: var(--text-light);
 }
 
 .chevron {
   transition: transform 0.2s ease;
 }
-
-.think-content {
-  padding: 0.75rem 1rem; 
-  background-color: rgba(255, 255, 255, 0.5); 
+.chevron.expanded {
+  transform: rotate(180deg);
 }
 
-:deep(.think-content p) {
-  margin-bottom: 0.5rem;
+.think-content-wrapper {
+  /* (新增) 折叠动画 (需要 JS 配合) */
+  overflow: hidden;
+}
+.think-content {
+  padding: 0.75rem 1rem; 
+  background-color: var(--card-bg); 
+  font-size: 0.9rem;
 }
 :deep(.think-content p:last-child) {
   margin-bottom: 0;
 }
-:deep(.think-content ul),
-:deep(.think-content ol) {
-  padding-left: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-:deep(.think-content li) {
-  margin-bottom: 0.25rem;
-}
-:deep(.think-content code) {
-  background-color: var(--border-color);
-  padding: 0.2em 0.4em;
-  border-radius: 4px;
-  font-family: 'Consolas', 'Monaco', monospace;
-}
-:deep(.think-content strong) {
-  font-weight: 600;
+
+/* (调整) 消息底部 (操作 + 时间) */
+.message-footer {
+  position: relative; /* (新增) 相对定位，用于弹窗 */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.5rem;
+  gap: 0.5rem;
 }
 
-/* 复制按钮样式 - 调整定位 */
-.copy-btn {
-  position: static; /* 改为 static，使用 flex 布局 */
-  /* left, bottom */
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* (新增) 图标按钮通用样式 */
+.icon-button {
   background: none;
   border: none;
-  padding: 0.25rem;
+  padding: 0.375rem;
   border-radius: var(--radius);
+  color: var(--text-light);
   cursor: pointer;
-  color: var(--text-secondary);
-  opacity: 0.6; /* 默认可见 */
   transition: all 0.2s ease;
-  
-  /* 下面的 :hover, :disabled 样式 */
 }
 
-
-/* 悬停效果 */
-.message-content:hover .copy-btn {
-    opacity: 1; /* 悬停时完全可见 */
+.icon-button:hover:not(:disabled) {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
 }
 
-.copy-btn:hover:not(:disabled) {
-  background-color: rgba(0, 0, 0, 0.1);
-  opacity: 1;
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
 }
 
-.copy-btn:disabled {
-  cursor: default;
-  opacity: 1; 
+/* (调整) 时间戳 */
+.timestamp-text {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  flex-shrink: 0;
+}
+.user-message .timestamp-text {
+  color: var(--text-light);
 }
 
-/* 反馈按钮激活状态 */
-.feedback-btn.liked {
+/* (调整) 反馈按钮状态 */
+.icon-button.liked {
   color: var(--primary-color);
-  opacity: 1;
 }
-.feedback-btn.disliked {
+.icon-button.disliked {
   color: var(--danger-color);
-  opacity: 1;
 }
-.feedback-btn:disabled:not(.liked):not(.disliked) {
-  /* 复制按钮的 :disabled 样式 */
-  cursor: default;
-  opacity: 1;
-}
-.feedback-btn:disabled {
-  cursor: not-allowed; /* 禁用时不允许点击 */
-}
-
-
-.icon-small {
-  width: 1rem; 
-  height: 1rem;
-  display: block; 
-}
-
 .icon-small.success {
   color: var(--secondary-color); 
 }
 
-/* 点赞提示 (Toast) */
+/* (调整) 反馈弹窗和提示 */
 .feedback-toast {
   position: absolute;
-  bottom: 2.5rem; /* 放在 message-time 上方 */
-  left: 1rem; /* 移到左侧 */
+  bottom: 2rem; /* (调整) 相对 .message-footer 定位 */
+  left: 0;
   background-color: var(--secondary-color);
   color: white;
   padding: 0.25rem 0.75rem;
@@ -964,44 +745,27 @@ onMounted(() => {
   100% { opacity: 0; transform: translateY(10px); }
 }
 
-/* 点踩弹窗 (Modal) - 调整定位 */
 .feedback-modal-overlay {
   position: absolute;
-  /* 调整 bottom 和 left 定位 */
-  bottom: -10rem; /* 放在 message-time (操作栏) 的上方 */
-  left: 0rem;     /* 与左侧内容对齐 */
-  transform: none;  /* 移除 transform */
+  bottom: 2rem; /* (调整) 相对 .message-footer 定位 */
+  left: 3rem;
   z-index: 20;
-  display: block;
-  background-color: transparent;
-  backdrop-filter: none;
-  padding: 0;
-  border-radius: 0;
 }
 
 .feedback-modal {
-  background-color: var(--card-bg);
-  padding: 1rem;
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  border: 1px solid var(--border-color);
-  width: 300px; /* 固定宽度 */
+  width: 300px;
 }
-
 .feedback-modal p {
   font-size: 0.875rem;
   color: var(--text-primary);
   margin-bottom: 1rem;
   line-height: 1.5;
 }
-
 .feedback-modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
 }
-
-/* 用于弹窗内按钮中的小图标 */
 .icon-small-inline {
   width: 1rem;
   height: 1rem;
@@ -1010,78 +774,64 @@ onMounted(() => {
   margin-right: 0.25rem;
 }
 
-/* 代码块包装器样式 */
+
+/* (调整) 代码块样式 */
 :deep(.code-block-wrapper) {
   position: relative;
-  margin: 0.5rem 0;
+  margin: 0.75rem 0;
 }
 
-/* 代码块按钮容器样式 */
 :deep(.code-block-buttons) {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
   display: flex;
-  gap: 0.25rem;
-  z-index: 10;
+  gap: 0.5rem;
+  z-index: 5;
 }
 
-/* 代码块复制按钮样式 */
-:deep(.code-block-copy-btn),
-:deep(.code-block-check-icon),
-:deep(.code-block-run-btn) {
-  background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-  padding: 0.375rem;
+:deep(.code-block-btn) {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.5rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
   transition: all 0.2s ease;
+  backdrop-filter: blur(2px);
   opacity: 0.8;
 }
-
-:deep(.code-block-copy-btn:hover),
-:deep(.code-block-run-btn:hover) {
-  background-color: rgba(255, 255, 255, 1);
+:deep(.code-block-btn:hover) {
   opacity: 1;
-  border-color: rgba(0, 0, 0, 0.2);
+  background-color: white;
+  border-color: #ccc;
+}
+:deep(.code-block-btn svg) {
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
-:deep(.code-block-check-icon) {
-  background-color: rgba(34, 197, 94, 0.1);
-  border-color: rgba(34, 197, 94, 0.3);
-  color: #22c55e;
+:deep(.code-check-icon) {
+  color: var(--secondary-color);
+  border-color: var(--secondary-color);
+}
+:deep(.code-run-btn) {
+  color: var(--primary-color);
 }
 
-:deep(.code-block-run-btn) {
-  background-color: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #3b82f6;
-}
-
-:deep(.code-block-run-btn:hover) {
-  background-color: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.5);
-}
-
-:deep(.code-block-copy-btn svg),
-:deep(.code-block-check-icon svg),
-:deep(.code-block-run-btn svg) {
-  width: 1rem;
-  height: 1rem;
-  display: block;
-}
-
-/* 代码块容器样式调整 */
 :deep(pre) {
   position: relative;
   margin: 0;
+  padding-top: 2.5rem; /* (新增) 为按钮留出空间 */
 }
 
-/* HTML 预览模态框样式 */
-.html-preview-modal-overlay {
+/* (调整) 预览模态框 */
+.preview-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -1097,18 +847,11 @@ onMounted(() => {
 }
 
 @keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.html-preview-modal {
-  background-color: var(--card-bg, #ffffff);
-  border-radius: 8px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+.preview-modal {
   width: 90%;
   max-width: 900px;
   height: 80%;
@@ -1120,156 +863,53 @@ onMounted(() => {
 }
 
 @keyframes slide-up {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
-.html-preview-header {
+.preview-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  padding: 0.75rem 0.75rem 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
-.html-preview-header h3 {
+.preview-header h3 {
   margin: 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: var(--text-primary, #111827);
+  color: var(--text-primary);
 }
 
-.html-preview-close-btn {
-  background: none;
-  border: none;
-  padding: 0.25rem;
-  cursor: pointer;
-  color: var(--text-secondary, #6b7280);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.html-preview-close-btn:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: var(--text-primary, #111827);
-}
-
-.html-preview-close-btn svg {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-.html-preview-content {
+.preview-content {
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
   position: relative;
+  background-color: var(--bg-color);
 }
 
-.html-preview-iframe {
+.preview-iframe {
   width: 100%;
   height: 100%;
   border: none;
   display: block;
-}
-
-/* JavaScript 运行结果模态框样式 */
-.js-result-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(2px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  animation: fade-in 0.2s ease;
-}
-
-.js-result-modal {
-  background-color: var(--card-bg, #ffffff);
-  border-radius: 8px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  width: 90%;
-  max-width: 800px;
-  height: 70%;
-  max-height: 600px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: slide-up 0.3s ease;
-}
-
-.js-result-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
-  flex-shrink: 0;
-}
-
-.js-result-header h3 {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary, #111827);
-}
-
-.js-result-close-btn {
-  background: none;
-  border: none;
-  padding: 0.25rem;
-  cursor: pointer;
-  color: var(--text-secondary, #6b7280);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.js-result-close-btn:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  color: var(--text-primary, #111827);
-}
-
-.js-result-close-btn svg {
-  width: 1.25rem;
-  height: 1.25rem;
+  background-color: white;
 }
 
 .js-result-content {
-  flex: 1;
-  overflow: auto;
   padding: 1rem 1.5rem;
-  background-color: var(--code-bg, #1e1e1e);
+  background-color: #1e1e1e; /* (固定) 深色背景 */
 }
-
 .js-result-pre {
   margin: 0;
-  padding: 1rem;
-  background-color: var(--code-bg, #1e1e1e);
-  color: var(--code-text, #d4d4d4);
+  background-color: #1e1e1e;
+  color: #d4d4d4;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 0.875rem;
   line-height: 1.6;
-  border-radius: 4px;
   white-space: pre-wrap;
   word-wrap: break-word;
-  overflow-wrap: break-word;
 }
 </style>
-

@@ -1,113 +1,218 @@
+/* * ==========================================
+ * 现代化的根样式 (Root Styles)
+ * ==========================================
+ */
 :root {
-  --primary-color: #4f46e5;
-  --primary-light: #6366f1;
-  --primary-dark: #4338ca;
-  --secondary-color: #10b981;
-  --bg-color: #f8fafc;
+  /* 色板 (Color Palette) - 更专业、简洁的色系 */
+  --primary-color: #2563eb;
+  /* (调整) 主色 - 专业的蓝色 */
+  --primary-light: #dbeafe;
+  /* (调整) 主色-浅色 (用于背景) */
+  --primary-dark: #1d4ed8;
+  /* (调整) 主色-深色 (用于悬停) */
+
+  --secondary-color: #059669;
+  /* (调整) 辅色 - 绿色 (用于成功状态) */
+  --danger-color: #dc2626;
+  /* (调整) 危险色 - 红色 */
+
+  /* 基础 (Base) */
+  --bg-color: #ffffff;
+  /* (调整) 页面背景 - 浅灰 */
   --card-bg: #ffffff;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
+  /* 卡片/侧边栏背景 - 白色 */
   --border-color: #e2e8f0;
-  --user-message: #e0e7ff;
-  --bot-message: #f1f5f9;
-  --danger-color: #ef4444;
+  /* (调整) 边框 - 更浅的灰色 */
+
+  /* 文本 (Text) */
+  --text-primary: #1e293b;
+  /* (调整) 主要文本 - 深灰蓝 */
+  --text-secondary: #64748b;
+  /* (调整) 次要文本 - 灰蓝 */
+  --text-light: #94a3b8;
+  /* (新增) 提示文本 - 浅灰蓝 */
+
+  /* 消息气泡 (Messages) */
+  --user-message-bg: #dbeafe;
+  /* (调整) 用户消息背景 - 浅蓝 */
+  --user-message-text: #1e3a8a;
+  /* (新增) 用户消息文本 */
+  --bot-message-bg: #ffffff;
+  /* (调整) AI 消息背景 - 白色 */
+  --bot-message-border: #e2e8f0;
+  /* (新增) AI 消息边框 */
+
+  /* 代码 (Code) */
+  --code-bg: #f1f5f9;
+  /* (新增) 代码块背景 */
+  --code-text: #334155;
+  /* (新增) 代码块文本 */
+
+  /* 阴影与圆角 (Shadows & Radius) */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --radius: 8px;
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --radius: 6px;
+  /* (调整) 圆角 - 稍小，更精致 */
 }
 
+/* * ==========================================
+ * 基础元素重置 (Base Element Reset)
+ * ==========================================
+ */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
   background-color: var(--bg-color);
   color: var(--text-primary);
-  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1400px;
+  /* (调整) 适配更宽的屏幕 */
   margin: 0 auto;
   padding: 0 1rem;
 }
 
+/* * ==========================================
+ * 通用组件样式 (Utility Components)
+ * ==========================================
+ */
+
+/* 按钮 (Buttons) */
 button {
   cursor: pointer;
-  border: none;
+  border: 1px solid transparent;
   border-radius: var(--radius);
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.875rem;
+  /* (调整) 优化 padding */
   font-weight: 500;
   transition: all 0.2s ease;
+  font-size: 0.875rem;
+  /* (调整) 统一字号 */
+  display: inline-flex;
+  /* (新增) 适配图标 */
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  /* (新增) 图标与文本间距 */
+}
+
+button:focus {
+  outline: 2px solid var(--primary-light);
+  /* (新增) 优化 focus 状态 */
+  outline-offset: 2px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 button.primary {
   background-color: var(--primary-color);
   color: white;
+  box-shadow: var(--shadow-sm);
 }
 
-button.primary:hover {
+button.primary:hover:not(:disabled) {
   background-color: var(--primary-dark);
 }
 
 button.secondary {
-  background-color: var(--border-color);
+  background-color: var(--card-bg);
   color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
 }
 
-button.secondary:hover {
-  background-color: #cbd5e1;
+button.secondary:hover:not(:disabled) {
+  background-color: var(--bg-color);
 }
 
 button.danger {
   background-color: var(--danger-color);
   color: white;
+  box-shadow: var(--shadow-sm);
 }
 
-button.danger:hover {
-  background-color: #dc2626;
+button.danger:hover:not(:disabled) {
+  background-color: #b91c1c;
 }
 
+/* 输入框 (Inputs & Textarea) */
 input,
 textarea {
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
-  padding: 0.5rem 1rem;
-  font-size: 1rem;
-  transition: border-color 0.2s ease;
+  padding: 0.625rem 0.875rem;
+  /* (调整) 优化 padding */
+  font-size: 0.9rem;
+  /* (调整) 优化字号 */
+  color: var(--text-primary);
+  background-color: var(--card-bg);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
 }
 
 input:focus,
 textarea:focus {
   outline: none;
   border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-light);
+  /* (调整) 优化 focus 阴影 */
 }
 
+textarea {
+  font-family: inherit;
+  resize: vertical;
+}
+
+/* 卡片 (Card) */
 .card {
   background-color: var(--card-bg);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  border: 1px solid var(--border-color);
+  /* (新增) 增加边框，更精致 */
   padding: 1.5rem;
 }
 
+/* 错误提示 (Error Message) */
 .error-message {
   color: var(--danger-color);
-  padding: 0.5rem;
+  padding: 0.75rem 1rem;
   margin-bottom: 1rem;
   border-radius: var(--radius);
-  background-color: rgba(239, 68, 68, 0.1);
+  background-color: #fee2e2;
+  /* (调整) 红色背景 */
+  border: 1px solid #fca5a5;
+  /* (新增) 红色边框 */
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
+/* 加载动画 (Loading Spinner) */
 .loading {
   display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 3px solid rgba(79, 70, 229, 0.3);
+  width: 1.25rem;
+  /* (调整) 尺寸 */
+  height: 1.25rem;
+  /* (调整) 尺寸 */
+  border: 3px solid var(--primary-light);
+  /* (调整) 颜色 */
   border-radius: 50%;
   border-top-color: var(--primary-color);
-  animation: spin 1s ease-in-out infinite;
+  /* (调整) 颜色 */
+  animation: spin 0.8s ease-in-out infinite;
 }
 
 @keyframes spin {
@@ -116,12 +221,19 @@ textarea:focus {
   }
 }
 
+/* * ==========================================
+ * Markdown 渲染样式 (Markdown Rendering)
+ * ==========================================
+ */
 
-/* 新增：Markdown 渲染样式 
-  这些样式将应用于 v-html 渲染出的内容
-*/
+/* 仅针对 AI 回复 (非用户消息) */
+.message:not(.user-message) .message-text {
+  line-height: 1.7;
+  font-size: 0.95rem;
+  /* (新增) 优化 AI 回复字号 */
+  color: var(--text-primary);
+}
 
-/* 针对 AI 回复（非用户消息）中的 v-html 内容 */
 .message:not(.user-message) .message-text p {
   margin-bottom: 0.75rem;
 }
@@ -132,56 +244,77 @@ textarea:focus {
 
 .message:not(.user-message) .message-text ul,
 .message:not(.user-message) .message-text ol {
-  padding-left: 1.5rem;
+  padding-left: 1.75rem;
+  /* (调整) 增加缩进 */
   margin-bottom: 0.75rem;
 }
 
 .message:not(.user-message) .message-text li {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.375rem;
+  /* (调整) 优化行距 */
 }
 
+/* (调整) 优化代码块样式 */
 .message:not(.user-message) .message-text pre {
-  background-color: #e2e8f0;
-  /* 代码块背景色 */
-  color: var(--text-primary);
-  padding: 0.75rem;
+  background-color: var(--code-bg);
+  color: var(--code-text);
+  padding: 1rem;
   border-radius: var(--radius);
   overflow-x: auto;
-  /* 水平滚动 */
   margin: 0.75rem 0;
+  border: 1px solid var(--border-color);
 }
 
 .message:not(.user-message) .message-text code {
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 0.9em;
 }
 
 /* 行内代码 */
 .message:not(.user-message) .message-text :not(pre)>code {
-  background-color: #e2e8f0;
+  background-color: var(--code-bg);
+  color: var(--primary-dark);
   padding: 0.2em 0.4em;
   border-radius: 4px;
+  font-weight: 500;
 }
 
+/* 引用 */
 .message:not(.user-message) .message-text blockquote {
-  border-left: 4px solid var(--border-color);
+  border-left: 4px solid var(--primary-light);
+  /* (调整) 颜色 */
   padding-left: 1rem;
   margin: 0.75rem 0;
   color: var(--text-secondary);
+  background-color: var(--bg-color);
+  /* (新增) 浅色背景 */
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
+/* 表格 */
 .message:not(.user-message) .message-text table {
-  width: 100%;
+  width: auto;
+  /* (调整) 自动宽度 */
   border-collapse: collapse;
-  margin: 0.75rem 0;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
 }
 
 .message:not(.user-message) .message-text th,
 .message:not(.user-message) .message-text td {
   border: 1px solid var(--border-color);
-  padding: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  text-align: left;
 }
 
 .message:not(.user-message) .message-text th {
-  background-color: #f1f5f9;
+  background-color: var(--bg-color);
+  font-weight: 600;
+}
+
+.message:not(.user-message) .message-text tr:nth-child(even) {
+  background-color: var(--bg-color);
 }
