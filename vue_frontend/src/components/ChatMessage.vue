@@ -142,7 +142,7 @@
           </div>
         </div>
 
-        <span class="timestamp-text">{{ formatTime(timestamp) }}</span>
+        <span v-if="isUser" class="timestamp-text">{{ formatTime(timestamp) }}</span>
       </div>
 
       <!-- (调整) HTML/JS 模态框样式 -->
@@ -520,9 +520,16 @@ onMounted(() => {
 /* (调整) 基础布局 */
 .message {
   display: flex;
-  gap: 0.75rem; /* 头像和内容的间距 */
-  max-width: 90%; /* (调整) 消息最大宽度 */
+  gap: 1rem; /* 头像和内容的间距 */
+  /* (修改) 默认 max-width 应用于 AI 消息 */
+  max-width: 70%; 
   overflow: visible;
+}
+
+.message.user-message {
+  margin-left: auto;
+  flex-direction: row-reverse;
+  max-width: 60%; /* 示例：将用户消息宽度调整为 50% */
 }
 
 .message.user-message {
@@ -593,7 +600,7 @@ onMounted(() => {
 
 /* (调整) 消息文本 */
 .message-text {
-  padding: 0.75rem 1rem;
+  padding: 1rem 1.5rem;
   line-height: 1.6;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -658,7 +665,7 @@ onMounted(() => {
   overflow: hidden;
 }
 .think-content {
-  padding: 0.75rem 1rem; 
+  padding: 1rem 1.5rem;
   background-color: var(--card-bg); 
   font-size: 0.9rem;
 }
@@ -674,6 +681,12 @@ onMounted(() => {
   align-items: center;
   padding-top: 0.5rem;
   gap: 0.5rem;
+}
+
+/* 调整用户消息下的操作容器，使其靠右 */
+.user-message .message-actions {
+  /* 确保操作按钮不会被时间戳挤压 */
+  order: 1; /* 确保在 flex 容器中位于最右侧 */
 }
 
 .message-actions {

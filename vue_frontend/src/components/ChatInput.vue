@@ -156,12 +156,20 @@ defineExpose({
 
 <style scoped>
 .chat-input-area {
+  max-width: 100%; /* 确保它能铺满父容器 */
+  width: 100%; 
+  margin: 0; 
+  
   display: flex;
   flex-direction: column;
-  gap: 0.75rem; /* (调整) 选项和输入框的间距 */
-  padding: 1rem 1.5rem; /* (调整) */
+  gap: 0.75rem; 
+  
+  /* **修改：左右 padding 设为 3rem，与 messages-container 对齐** */
+  padding: 1rem 3rem; 
+  padding-bottom: 1.5rem; /* 修正底部留白 */
+  
   border-top: 1px solid var(--border-color);
-  background-color: var(--card-bg); /* (新增) 底部背景 */
+  background-color: var(--card-bg); 
   flex-shrink: 0;
 }
 

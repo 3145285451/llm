@@ -35,7 +35,7 @@
   /* 消息气泡 (Messages) */
   --user-message-bg: #dbeafe;
   /* (调整) 用户消息背景 - 浅蓝 */
-  --user-message-text: #1e3a8a;
+  --user-message-text: #000000;
   /* (新增) 用户消息文本 */
   --bot-message-bg: #ffffff;
   /* (调整) AI 消息背景 - 白色 */

@@ -74,11 +74,13 @@
         </div>
       </div>
       
-      <ChatInput
-        ref="chatInputRef"
-        :loading="loading"
-        @send="handleSendMessage"
-      />
+      <div class="chat-input-wrapper">
+        <ChatInput
+          ref="chatInputRef"
+          :loading="loading"
+          @send="handleSendMessage"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -612,11 +614,13 @@ const handleLogout = () => {
 
 .messages-container {
   flex: 1;
-  padding: 1.5rem; /* (调整) 增加 padding */
+  /* 调整消息框上下、左右移动 */
+  padding: 5rem 12rem;  
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem; /* (调整) 消息间距 */
+  /* 注意：这里不添加 align-items: center */
+  gap: 1.5rem; 
 }
 
 /* (调整) 空状态样式 */
