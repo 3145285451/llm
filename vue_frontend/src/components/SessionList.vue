@@ -7,10 +7,28 @@
         <plus-icon class="icon" />
       </button>
     </div>
+    <!-- (新增) 搜索输入框 -->
+    <div class="session-list-search">
+      <search-icon class="search-icon" />
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="搜索会话..."
+        aria-label="搜索会话"
+      />
+      <button v-if="searchQuery" @click="clearSearch" class="clear-search-btn icon-button" title="清除搜索">
+        <x-icon class="icon" />
+      </button>
+    </div>
     
+    <!-- (新增) 无搜索结果提示 -->
+    <div v-if="filteredSessions.length === 0 && searchQuery" class="no-results">
+      没有找到匹配的会话。
+    </div>
+    <!-- (修改) 遍历 filteredSessions -->
     <div class="session-items">
       <div
-        v-for="session in sessions"
+        v-for="session in filteredSessions"
         :key="session"
         class="session-item"
         :class="{ active: session === currentSession }"
@@ -49,8 +67,8 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits, watch, nextTick } from 'vue'; // (新增) watch, nextTick
-import { PlusIcon, TrashIcon } from 'vue-tabler-icons';
+import { ref, defineProps, defineEmits, watch, nextTick, computed } from 'vue'; // (新增) watch, nextTick
+import { PlusIcon, TrashIcon, SearchIcon, XIcon } from 'vue-tabler-icons';
 
 const props = defineProps({
   sessions: {
@@ -68,6 +86,8 @@ const emits = defineEmits(['select', 'delete', 'create']);
 const showNewSessionDialog = ref(false);
 const newSessionName = ref('');
 const newSessionInputRef = ref(null); // (新增) input 引用
+// (新增) 搜索相关 state
+const searchQuery = ref('');
 
 // (新增) 监听弹窗显示，自动聚焦
 watch(showNewSessionDialog, (isShown) => {
@@ -78,6 +98,16 @@ watch(showNewSessionDialog, (isShown) => {
   }
 });
 
+// (新增) 过滤会话列表的计算属性
+const filteredSessions = computed(() => {
+  if (!searchQuery.value) {
+    return props.sessions; // 如果搜索框为空，显示所有会话
+  }
+  const lowerCaseQuery = searchQuery.value.toLowerCase();
+  return props.sessions.filter(session =>
+    session.toLowerCase().includes(lowerCaseQuery)
+  );
+});
 const selectSession = (session) => {
   emits('select', session);
 };
@@ -96,6 +126,12 @@ const createSession = () => {
     showNewSessionDialog.value = false;
   }
 };
+
+// (新增) 清除搜索关键词
+const clearSearch = () => {
+  searchQuery.value = '';
+};
+
 </script>
 
 <style scoped>
@@ -142,6 +178,65 @@ const createSession = () => {
   width: 1.25rem;
   height: 1.25rem;
   display: block; /* (新增) */
+}
+
+
+/* (新增) 搜索框样式 */
+.session-list-search {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-color-light); /* 稍微区分背景 */
+  flex-shrink: 0;
+}
+
+.session-list-search .search-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--text-secondary);
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
+.session-list-search input {
+  flex-grow: 1;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.session-list-search input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.session-list-search .clear-search-btn {
+  margin-left: 0.5rem;
+  color: var(--text-secondary);
+  padding: 0.25rem;
+}
+
+.session-list-search .clear-search-btn:hover {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+}
+
+/* (新增) 无结果提示样式 */
+.no-results {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  flex-grow: 1; /* 占据剩余空间 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .session-items {
