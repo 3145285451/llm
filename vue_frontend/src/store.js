@@ -3,8 +3,8 @@ import { defineStore } from 'pinia';
 export const useStore = defineStore('main', {
   state: () => ({
     apiKey: localStorage.getItem('apiKey') || null,
-    currentSession: localStorage.getItem('currentSession') || 'default_session',
-    sessions: JSON.parse(localStorage.getItem('sessions') || '["default_session"]'),
+    currentSession: localStorage.getItem('currentSession') || '默认对话',
+    sessions: JSON.parse(localStorage.getItem('sessions') || '["默认对话"]'),
     messages: {}, // (e.g., { 'session_id': [ { id, isUser, content, think_process, duration, timestamp } ] })
     loading: false,
     error: null,
@@ -60,7 +60,7 @@ export const useStore = defineStore('main', {
 
       // 如果删除的是当前会话，切换到默认会话
       if (sessionId === this.currentSession) {
-        const newSession = this.sessions.length > 0 ? this.sessions[0] : 'default_session';
+        const newSession = this.sessions.length > 0 ? this.sessions[0] : '默认对话';
         this.setCurrentSession(newSession);
       }
     },
@@ -150,9 +150,9 @@ export const useStore = defineStore('main', {
       if (!this.messages[sessionId] || this.messages[sessionId].length === 0) {
         return;
       }
-      
+
       const lastMessage = this.messages[sessionId][this.messages[sessionId].length - 1];
-      
+
       // 确保最后一条是 AI 消息
       if (!lastMessage.isUser) {
         this.messages[sessionId].pop();

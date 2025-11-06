@@ -740,7 +740,7 @@ onMounted(() => {
 /* (调整) 反馈弹窗和提示 */
 .feedback-toast {
   position: absolute;
-  bottom: 2rem; /* (调整) 相对 .message-footer 定位 */
+  bottom: -3rem; /* (调整) 相对 .message-footer 定位 */
   left: 0;
   background-color: var(--secondary-color);
   color: white;
@@ -760,13 +760,14 @@ onMounted(() => {
 
 .feedback-modal-overlay {
   position: absolute;
-  bottom: 2rem; /* (调整) 相对 .message-footer 定位 */
+  bottom: -7rem; /* (调整) 相对 .message-footer 定位 */
   left: 3rem;
   z-index: 20;
 }
 
 .feedback-modal {
-  width: 300px;
+  height: 100px;
+  width: 350px;
 }
 .feedback-modal p {
   font-size: 0.875rem;
@@ -777,7 +778,7 @@ onMounted(() => {
 .feedback-modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 .icon-small-inline {
   width: 1rem;

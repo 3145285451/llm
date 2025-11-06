@@ -69,7 +69,7 @@ def chat(request, data: ChatIn):
             content_type="text/event-stream",
         )
 
-    session_id = data.session_id.strip() or "default_session"
+    session_id = data.session_id.strip() or "默认对话"
     user_input = data.user_input.strip()
     if not user_input:
         return StreamingHttpResponse(
@@ -82,7 +82,7 @@ def chat(request, data: ChatIn):
 
     user = request.auth
     session = get_or_create_session(session_id, user)
-    
+
     # (新增) 获取搜索选项
     use_db_search = data.use_db_search
     use_web_search = data.use_web_search
@@ -134,10 +134,7 @@ def chat(request, data: ChatIn):
         try:
             # (修改) 传递搜索选项
             for raw_chunk in deepseek_r1_api_call(
-                user_input, 
-                history_for_llm,
-                use_db_search,
-                use_web_search
+                user_input, history_for_llm, use_db_search, use_web_search
             ):
                 buffer += raw_chunk
 
@@ -268,15 +265,15 @@ def chat(request, data: ChatIn):
 
 
 @router.get("/history", response={200: HistoryOut})
-def history(request, session_id: str = "default_session"):
-    processed_session_id = session_id.strip() or "default_session"
+def history(request, session_id: str = "默认对话"):
+    processed_session_id = session_id.strip() or "默认对话"
     session = services.get_or_create_session(processed_session_id, request.auth)
     return {"history": session.context}
 
 
 @router.delete("/history", response={200: dict})
-def clear_history(request, session_id: str = "default_session"):
-    processed_session_id = session_id.strip() or "default_session"
+def clear_history(request, session_id: str = "默认对话"):
+    processed_session_id = session_id.strip() or "默认对话"
     session = services.get_or_create_session(processed_session_id, request.auth)
     session.clear_context()
     return {"message": "历史记录已清空"}

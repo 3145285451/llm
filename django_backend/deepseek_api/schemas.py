@@ -13,11 +13,11 @@ class LoginOut(Schema):
 
 
 class ChatIn(Schema):
-    session_id: str = "default_session"
+    session_id: str = "默认对话"
     user_input: str
-    context: Optional[List[Dict[str, str]]] = None  
+    context: Optional[List[Dict[str, str]]] = None
     use_db_search: bool = True  # (新增) 默认开启数据库
-    use_web_search: bool = False # (新增) 默认关闭联网
+    use_web_search: bool = False  # (新增) 默认关闭联网
 
 
 class ChatOut(Schema):
