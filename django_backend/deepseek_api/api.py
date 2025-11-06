@@ -1,5 +1,6 @@
-from ninja import NinjaAPI, Router
+from ninja import NinjaAPI, Router, File
 from django.http import HttpRequest, StreamingHttpResponse
+from ninja.files import UploadedFile as NinjaUploadedFile
 from typing import Optional, Generator
 from . import services
 from django.conf import settings
@@ -280,3 +281,56 @@ def clear_history(request, session_id: str = "默认对话"):
 
 
 api.add_router("", router)
+
+
+# 新增：文件上传解析接口
+@router.post("/upload_file")
+def upload_file(request, file: NinjaUploadedFile = File(...)):
+    if not request.auth:
+        return 401, {"error": "请先登录获取API Key"}
+
+    filename = (file.name or "").lower()
+    try:
+        if filename.endswith(".txt"):
+            # 纯文本
+            content_bytes = file.read()
+            try:
+                text = content_bytes.decode("utf-8")
+            except Exception:
+                text = content_bytes.decode("gbk", errors="ignore")
+            return {"text": text}
+
+        elif filename.endswith(".docx"):
+            try:
+                from docx import Document
+            except Exception:
+                return 400, {"error": "缺少依赖：请安装 python-docx"}
+
+            document = Document(file)
+            paragraphs = [p.text for p in document.paragraphs if p.text]
+            text = "\n".join(paragraphs)
+            return {"text": text}
+
+        elif filename.endswith(".xlsx"):
+            try:
+                import openpyxl
+            except Exception:
+                return 400, {"error": "缺少依赖：请安装 openpyxl"}
+
+            wb = openpyxl.load_workbook(file, data_only=True)
+            lines = []
+            for ws in wb.worksheets:
+                lines.append(f"# 工作表: {ws.title}")
+                for row in ws.iter_rows(values_only=True):
+                    # 将每行的单元格以制表符连接
+                    cells = ["" if v is None else str(v) for v in row]
+                    lines.append("\t".join(cells))
+            text = "\n".join(lines)
+            return {"text": text}
+
+        else:
+            return 400, {"error": "不支持的文件类型，仅支持 .txt / .docx / .xlsx"}
+
+    except Exception as e:
+        logger.error(f"文件解析失败: {e}")
+        return 400, {"error": f"文件解析失败: {e}"}

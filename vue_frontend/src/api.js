@@ -44,7 +44,7 @@ async function streamChat(sessionId, userInput, onData, onError, onComplete, con
       use_db_search: useDbSearch,   // (新增)
       use_web_search: useWebSearch, // (新增)
     };
-    
+
     // (新增) 如果提供了 context，添加到请求体
     if (context && Array.isArray(context) && context.length > 0) {
       body.context = context;
@@ -150,3 +150,30 @@ export default {
     return axiosApi.delete('/history', { params: { session_id: sessionId } });
   }
 };
+
+// 新增：文件上传 API（返回解析后的纯文本）
+export async function uploadFile(file) {
+  const token = localStorage.getItem('apiKey');
+  const form = new FormData();
+  form.append('file', file);
+
+  const resp = await fetch('/api/upload_file', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: form
+  });
+
+  if (!resp.ok) {
+    const txt = await resp.text();
+    try {
+      const data = JSON.parse(txt);
+      throw new Error(data.error || '文件上传失败');
+    } catch {
+      throw new Error('文件上传失败');
+    }
+  }
+
+  return resp.json();
+}

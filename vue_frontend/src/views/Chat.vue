@@ -55,6 +55,7 @@
           :key="msg.id"
           :is-user="msg.isUser"
           :content="msg.content"
+          :attachment-name="msg.attachmentName"
           :think-process="msg.think_process" 
           :duration="msg.duration"
           :timestamp="msg.timestamp"
@@ -344,19 +345,19 @@ const handleCreateSession = (sessionId) => {
   loadHistory(sessionId);
 };
 
-const handleSendMessage = async (content) => {
+const handleSendMessage = async (content, extra) => {
   const sessionId = currentSession.value;
 
   if (isEditing.value && editingMessageId.value) {
     await handleEditSend(sessionId, content);
   } else {
-    await handleNormalSend(sessionId, content);
+    await handleNormalSend(sessionId, content, extra);
   }
 };
 
-const handleNormalSend = async (sessionId, content) => {
+const handleNormalSend = async (sessionId, content, extra) => {
   lastUserMessage.value = content;
-  store.addMessage(sessionId, true, { content: content });
+  store.addMessage(sessionId, true, { content: content, attachmentName: extra && extra.attachmentName ? extra.attachmentName : undefined });
   await scrollToBottom(); 
   
   const aiMessageId = store.addMessage(sessionId, false, { 
@@ -368,9 +369,14 @@ const handleNormalSend = async (sessionId, content) => {
   store.setLoading(true);
   store.setError(null);
 
+  // 将附件作为附加段落拼接到本次用户输入末尾（不影响输入框展示）
+  const combinedInput = extra && extra.attachmentText
+    ? `${content}\n\n[附件]\n${extra.attachmentText}`
+    : content;
+
   await api.streamChat(
     sessionId,
-    content,
+    combinedInput,
     (data) => {
       if (data.type === 'content') {
         store.updateLastMessage(sessionId, { content_chunk: data.chunk });

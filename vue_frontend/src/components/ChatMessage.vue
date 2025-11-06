@@ -12,6 +12,11 @@
     
     <!-- (调整) 消息内容和操作的包装器 -->
     <div class="message-wrapper">
+      <!-- 新增：用户消息附件名小框（在气泡上方，独立显示） -->
+      <div v-if="isUser && attachmentName" class="attachment-chip-top">
+        <span class="name-text">{{ attachmentName }}</span>
+      </div>
+
       <!-- (调整) 消息内容气泡 -->
       <div class="message-content" :class="{ 'user-content': isUser }">
         
@@ -197,6 +202,7 @@ import {
 const props = defineProps({
   isUser: { type: Boolean, required: true },
   content: { type: String, required: true },
+  attachmentName: { type: String, default: '' },
   timestamp: { type: Date, required: true },
   thinkProcess: { type: String, default: null },
   duration: { type: Number, default: null },
@@ -590,6 +596,30 @@ onMounted(() => {
   background-color: var(--card-bg);
   box-shadow: var(--shadow-sm);
   overflow: hidden; /* (新增) 确保 think-container 圆角 */
+}
+
+/* 新增：用户消息附件名顶部小框（独立于气泡） */
+.attachment-chip-top {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  align-self: flex-end; /* 与用户消息对齐到右侧 */
+  background-color: var(--bg-color);
+  border: 1px dashed var(--border-color);
+  color: var(--text-secondary);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.375rem; /* 与气泡保持间距 */
+  font-size: 0.85rem;
+}
+.attachment-chip-top .paperclip {
+  line-height: 1;
+}
+.attachment-chip-top .name-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 18rem;
 }
 
 .message-content.user-content {

@@ -2,34 +2,58 @@
   <div class="chat-input-area">
     <!-- (调整) 搜索选项开关样式 -->
     <div class="chat-options">
-      <label class="option-label" for="db-search-toggle" title="查询本地知识库">
-        <input
-          type="checkbox"
-          id="db-search-toggle"
-          class="custom-checkbox"
-          v-model="useDbSearch"
-        />
-        <span class="checkbox-icon">
-          <database-icon class="icon-small" />
-        </span>
-        <span>数据库查询</span>
-      </label>
-      <label class="option-label" for="web-search-toggle" title="使用互联网搜索">
-        <input
-          type="checkbox"
-          id="web-search-toggle"
-          class="custom-checkbox"
-          v-model="useWebSearch"
-        />
-        <span class="checkbox-icon">
-          <world-icon class="icon-small" />
-        </span>
-        <span>联网搜索</span>
-      </label>
+      <div class="options-left">
+        <label class="option-label" for="db-search-toggle" title="查询本地知识库">
+          <input
+            type="checkbox"
+            id="db-search-toggle"
+            class="custom-checkbox"
+            v-model="useDbSearch"
+          />
+          <span class="checkbox-icon">
+            <database-icon class="icon-small" />
+          </span>
+          <span>数据库查询</span>
+        </label>
+        <label class="option-label" for="web-search-toggle" title="使用互联网搜索">
+          <input
+            type="checkbox"
+            id="web-search-toggle"
+            class="custom-checkbox"
+            v-model="useWebSearch"
+          />
+          <span class="checkbox-icon">
+            <world-icon class="icon-small" />
+          </span>
+          <span>联网搜索</span>
+        </label>
+        <div v-if="attachmentText" class="attachment-chip" title="此文件内容将作为本次消息附件发送">
+          <paperclip-icon class="icon-small" />
+          <span>已添加{{ attachmentName }}</span>
+          <button class="chip-close" @click="removeAttachment" :disabled="loading" aria-label="移除附件">×</button>
+        </div>
+      </div>
     </div>
 
     <!-- (调整) 输入框和按钮的包装器 -->
     <div class="input-wrapper" :class="{ 'focused': isFocused }">
+      <!-- 新增：上传文件按钮（触发隐藏文件选择） -->
+      <input
+        ref="fileInputRef"
+        type="file"
+        accept=".txt,.docx,.xlsx"
+        style="display:none"
+        @change="onFileChange"
+      />
+      <button
+        class="send-button"
+        style="background-color: var(--bg-color); color: var(--text-color);"
+        @click="triggerFileSelect"
+        :disabled="loading"
+        title="上传并读取文件"
+      >
+        <paperclip-icon class="icon" />
+      </button>
       <textarea
         ref="textareaRef"
         v-model="message"
@@ -62,7 +86,8 @@
 import { ref, defineProps, defineEmits, defineExpose, nextTick, computed } from 'vue';
 import { useStore } from '../store';
 // (新增) 导入图标
-import { SendIcon, DatabaseIcon, WorldIcon } from 'vue-tabler-icons';
+import { SendIcon, DatabaseIcon, WorldIcon, PaperclipIcon } from 'vue-tabler-icons';
+import apiDefault, { uploadFile as uploadFileApi } from '../api';
 
 const props = defineProps({
   loading: {
@@ -76,6 +101,9 @@ const emits = defineEmits(['send']);
 const message = ref('');
 const textareaRef = ref(null);
 const isFocused = ref(false); // (新增) 跟踪聚焦状态
+const fileInputRef = ref(null);
+const attachmentText = ref('');
+const attachmentName = ref('');
 
 const store = useStore();
 
@@ -117,8 +145,10 @@ const focus = () => {
 const sendMessage = () => {
   const content = message.value.trim();
   if (content && !props.loading) { // (新增) 检查 loading
-    emits('send', content);
+    emits('send', content, { attachmentText: attachmentText.value, attachmentName: attachmentName.value });
     message.value = '';
+    attachmentText.value = '';
+    attachmentName.value = '';
     nextTick(autoResize); // (新增) 发送后重置高度
   }
 };
@@ -145,6 +175,34 @@ const addNewline = (e) => {
     el.selectionStart = el.selectionEnd = start + 1;
     autoResize(); // (新增) 换行时调整高度
   });
+};
+
+// 新增：触发文件选择
+const triggerFileSelect = () => {
+  if (fileInputRef.value) fileInputRef.value.click();
+};
+
+// 新增：处理文件选择并上传解析
+const onFileChange = async (e) => {
+  const files = e.target.files;
+  if (!files || !files[0]) return;
+  const file = files[0];
+  try {
+    const res = await uploadFileApi(file);
+    attachmentText.value = res.text || '';
+    attachmentName.value = file.name || '附件文本';
+  } catch (err) {
+    // 简单提示方式：将错误写入输入框开头，方便用户看到
+    setContent(`【文件读取失败】${err.message || ''}`);
+  } finally {
+    e.target.value = '';
+  }
+};
+
+// 新增：移除附件
+const removeAttachment = () => {
+  attachmentText.value = '';
+  attachmentName.value = '';
 };
 
 defineExpose({
@@ -178,6 +236,20 @@ defineExpose({
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.options-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.options-right {
+  display: inline-flex;
+  align-items: center;
 }
 
 .option-label {
@@ -191,6 +263,7 @@ defineExpose({
   border-radius: var(--radius);
   transition: all 0.2s ease;
   user-select: none;
+  min-height: 2rem;
 }
 
 .option-label:hover {
@@ -298,6 +371,35 @@ defineExpose({
 .send-button .icon {
   width: 1.25rem;
   height: 1.25rem;
+}
+
+/* 新增：附件标签样式 */
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background-color: var(--bg-color);
+  color: var(--text-secondary);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.5rem;
+  min-height: 2rem; /* 与 option-label 同高 */
+  font-size: 0.875rem; /* 与 option-label 同字号 */
+}
+
+.chip-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+
+/* 统一附件标签内图标尺寸与颜色，匹配开关图标 */
+.attachment-chip .icon-small {
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-light);
 }
 
 /* (调整) loading 动画 */
