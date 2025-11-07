@@ -11,17 +11,13 @@
       
       <div class="user-info">
         <div class="user-actions">
-          <button class="secondary" @click="exportToPDF">
-            <download-icon class="icon-small" />
-            导出为HTML文件
+          <button class="secondary" @click="openSettingsModal">
+            <settings-icon class="icon-small" />
+            设置
           </button>
           <button class="secondary" @click="handleClearHistory">
             <trash-icon class="icon-small" />
             清空当前会话
-          </button>
-          <button class="secondary danger-hover" @click="handleLogout">
-            <logout-icon class="icon-small" />
-            退出登录
           </button>
         </div>
       </div>
@@ -85,13 +81,67 @@
           @send="handleSendMessage"
         />
       </div>
+
+      <div
+        v-if="showSettingsModal"
+        class="settings-modal-overlay"
+        @click.self="closeSettingsModal"
+      >
+        <div class="settings-modal card">
+          <div class="settings-modal-header">
+            <h3>设置</h3>
+            <button class="icon-button" @click="closeSettingsModal" title="关闭">
+              <x-icon class="icon-small" />
+            </button>
+          </div>
+
+          <div class="settings-modal-body">
+            <div class="settings-field">
+              <label for="sessionSelect">选择会话</label>
+              <select id="sessionSelect" v-model="selectedSessionForExport">
+                <option
+                  v-for="session in sessions"
+                  :key="session"
+                  :value="session"
+                >
+                  {{ session }}
+                </option>
+              </select>
+            </div>
+
+            <div class="settings-field">
+              <label for="modelSelect">选择模型</label>
+              <select id="modelSelect" v-model="selectedModel">
+                <option v-for="model in availableModels" :key="model" :value="model">
+                  {{ model }}
+                </option>
+              </select>
+            </div>
+
+            <div class="settings-actions">
+              <button
+                class="secondary"
+                :disabled="isExporting"
+                @click="handleExportSelectedSession"
+              >
+                <download-icon class="icon-small" />
+                {{ isExporting ? '导出中...' : '导出为HTML文件' }}
+              </button>
+              <button class="secondary danger-hover" @click="handleLogoutFromModal">
+                <logout-icon class="icon-small" />
+                退出登录
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 // (新增) 导入图标
-import { onMounted, computed, ref, nextTick } from 'vue'; 
+import { onMounted, computed, ref, nextTick, watch } from 'vue'; 
 import { useRouter } from 'vue-router';
 import { useStore } from '../store';
 import api from '../api';
@@ -99,172 +149,7 @@ import SessionList from '../components/SessionList.vue';
 import ChatMessage from '../components/ChatMessage.vue';
 import ChatInput from '../components/ChatInput.vue';
 // (修改) 导入 MenuIcon
-import { DownloadIcon,TrashIcon, LogoutIcon, MenuIcon } from 'vue-tabler-icons';
-
-// ... (exportToPDF 函数保持不变) ...
-const exportToPDF = async () => {
-  try {
-    // 更改按钮文字显示导出状态
-    const exportButton = document.querySelector('.user-actions button:first-child');
-    const originalButtonText = exportButton.textContent;
-    exportButton.textContent = '导出中...';
-    exportButton.disabled = true;
-    
-    // 获取会话信息
-    const sessionName = currentSession.value;
-    const exportTime = new Date().toLocaleString('zh-CN');
-    const currentMessages = messages.value;
-    
-    // 构建HTML内容，调整字体大小
-    let htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>DeepSeek-KAI 聊天记录 - ${sessionName}</title>
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-                line-height: 1.6;
-                color: #333;
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
-                font-size: 14px; /* 减小整体字体大小 */
-            }
-            .header {
-                text-align: center;
-                border-bottom: 2px solid #1a73e8;
-                padding-bottom: 20px;
-                margin-bottom: 30px;
-            }
-            .header h1 {
-                color: #1a73e8;
-                margin-bottom: 10px;
-                font-size: 24px; /* 调整标题字体大小 */
-            }
-            .header h2 {
-                color: #5f6368;
-                margin: 0 0 5px 0;
-                font-weight: normal;
-                font-size: 18px; /* 调整子标题字体大小 */
-            }
-            .header p {
-                color: #80868b;
-                margin: 0;
-                font-size: 14px; /* 调整时间字体大小 */
-            }
-            .message {
-                margin-bottom: 20px;
-                padding: 12px;
-                border-radius: 6px;
-            }
-            .user-message {
-                background-color: #e8f0fe;
-                border-left: 3px solid #1a73e8;
-            }
-            .ai-message {
-                background-color: #f1f8e9;
-                border-left: 3px solid #34a853;
-            }
-            .message-header {
-                font-weight: bold;
-                margin-bottom: 8px;
-                font-size: 15px; /* 调整消息头部字体大小 */
-            }
-            .user-header {
-                color: #1a73e8;
-            }
-            .ai-header {
-                color: #34a853;
-            }
-            .timestamp {
-                color: #80868b;
-                font-size: 12px; /* 调整时间戳字体大小 */
-            }
-            .content {
-                white-space: pre-wrap;
-                font-size: 14px; /* 调整内容字体大小 */
-                line-height: 1.5;
-            }
-            @media print {
-                body {
-                    padding: 10px;
-                }
-                .message {
-                    page-break-inside: avoid;
-                    margin-bottom: 15px;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>DeepSeek-KAI 聊天记录</h1>
-            <h2>会话: ${sessionName}</h2>
-            <p>导出时间: ${exportTime}</p>
-        </div>
-    `;
-    
-    // 添加消息内容
-    currentMessages.forEach((msg, index) => {
-      const role = msg.isUser ? '用户' : 'AI助手';
-      const time = new Date(msg.timestamp).toLocaleString('zh-CN');
-      const contentText = msg.content || '';
-      
-      htmlContent += `
-        <div class="message ${msg.isUser ? 'user-message' : 'ai-message'}">
-            <div class="message-header ${msg.isUser ? 'user-header' : 'ai-header'}">
-                ${role} <span class="timestamp">(${time})</span>
-            </div>
-            <div class="content">${contentText}</div>
-        </div>
-      `;
-    });
-    
-    htmlContent += `
-    </body>
-    </html>
-    `;
-    
-    // 创建 Blob 对象
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-    
-    // 创建下载链接
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${sessionName}_聊天记录_${new Date().getTime()}.html`;
-    
-    // 触发下载
-    document.body.appendChild(a);
-    a.click();
-    
-    // 清理
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    // 恢复按钮状态
-    exportButton.textContent = originalButtonText;
-    exportButton.disabled = false;
-    
-    // 提示用户
-    alert('聊天记录已导出为HTML文件，您可以使用浏览器打开该文件并打印为PDF');
-    
-  } catch (error) {
-    console.error('导出失败:', error);
-    alert('导出失败，请查看控制台了解详细信息');
-    
-    // 恢复按钮状态
-    const exportButton = document.querySelector('.user-actions button:first-child');
-    if (exportButton) {
-      exportButton.textContent = '导出为HTML文件';
-      exportButton.disabled = false;
-    }
-  }
-};
-
-
+import { DownloadIcon, TrashIcon, LogoutIcon, MenuIcon, SettingsIcon, XIcon } from 'vue-tabler-icons';
 const store = useStore();
 const router = useRouter();
 const messagesContainerRef = ref(null); 
@@ -284,6 +169,211 @@ const isEditing = computed(() => store.isEditing);
 const editingMessageId = computed(() => store.editingMessageId);
 const useDbSearch = computed(() => store.useDbSearch);
 const useWebSearch = computed(() => store.useWebSearch);
+
+const showSettingsModal = ref(false);
+const isExporting = ref(false);
+const selectedSessionForExport = ref(currentSession.value);
+const selectedModel = ref('DeepSeek-R1');
+const availableModels = ref([
+  'DeepSeek-R1:7b',
+  'Qwen3:8b',
+  'Llama3:8b'
+]);
+
+watch(() => currentSession.value, (newSession) => {
+  if (!showSettingsModal.value) {
+    selectedSessionForExport.value = newSession;
+  }
+}, { immediate: true });
+
+watch(sessions, (newSessions) => {
+  if (!newSessions.includes(selectedSessionForExport.value)) {
+    selectedSessionForExport.value = newSessions[0] || '';
+  }
+}, { immediate: true });
+
+const openSettingsModal = () => {
+  selectedSessionForExport.value = currentSession.value;
+  showSettingsModal.value = true;
+};
+
+const closeSettingsModal = () => {
+  showSettingsModal.value = false;
+};
+
+const ensureSessionMessages = async (sessionId) => {
+  let sessionMessages = store.messages[sessionId];
+  if (sessionMessages && sessionMessages.length > 0) {
+    return sessionMessages;
+  }
+
+  try {
+    const response = await api.getHistory(sessionId);
+    store.loadHistory(sessionId, response.data.history);
+    sessionMessages = store.messages[sessionId] || [];
+    return sessionMessages;
+  } catch (err) {
+    const message = err?.response?.data?.error || err?.message || '加载会话历史失败';
+    throw new Error(message);
+  }
+};
+
+const buildExportHtml = (sessionName, exportTime, sessionMessages) => {
+  let htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>DeepSeek-KAI 聊天记录 - ${sessionName}</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                font-size: 14px;
+            }
+            .header {
+                text-align: center;
+                border-bottom: 2px solid #1a73e8;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }
+            .header h1 {
+                color: #1a73e8;
+                margin-bottom: 10px;
+                font-size: 24px;
+            }
+            .header h2 {
+                color: #5f6368;
+                margin: 0 0 5px 0;
+                font-weight: normal;
+                font-size: 18px;
+            }
+            .header p {
+                color: #80868b;
+                margin: 0;
+                font-size: 14px;
+            }
+            .message {
+                margin-bottom: 20px;
+                padding: 12px;
+                border-radius: 6px;
+            }
+            .user-message {
+                background-color: #e8f0fe;
+                border-left: 3px solid #1a73e8;
+            }
+            .ai-message {
+                background-color: #f1f8e9;
+                border-left: 3px solid #34a853;
+            }
+            .message-header {
+                font-weight: bold;
+                margin-bottom: 8px;
+                font-size: 15px;
+            }
+            .user-header {
+                color: #1a73e8;
+            }
+            .ai-header {
+                color: #34a853;
+            }
+            .timestamp {
+                color: #80868b;
+                font-size: 12px;
+            }
+            .content {
+                white-space: pre-wrap;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+            @media print {
+                body {
+                    padding: 10px;
+                }
+                .message {
+                    page-break-inside: avoid;
+                    margin-bottom: 15px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>DeepSeek-KAI 聊天记录</h1>
+            <h2>会话: ${sessionName}</h2>
+            <p>导出时间: ${exportTime}</p>
+        </div>
+  `;
+
+  sessionMessages.forEach((msg) => {
+    const role = msg.isUser ? '用户' : 'AI助手';
+    const time = msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN') : '';
+    const contentText = msg.content || '';
+
+    htmlContent += `
+        <div class="message ${msg.isUser ? 'user-message' : 'ai-message'}">
+            <div class="message-header ${msg.isUser ? 'user-header' : 'ai-header'}">
+                ${role}${time ? ` <span class="timestamp">(${time})</span>` : ''}
+            </div>
+            <div class="content">${contentText}</div>
+        </div>
+    `;
+  });
+
+  htmlContent += `
+    </body>
+    </html>
+  `;
+
+  return htmlContent;
+};
+
+const exportSessionToHtml = async (sessionId) => {
+  const sessionName = sessionId;
+  const exportTime = new Date().toLocaleString('zh-CN');
+  const sessionMessages = await ensureSessionMessages(sessionId);
+  const htmlContent = buildExportHtml(sessionName, exportTime, sessionMessages);
+
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${sessionName}_聊天记录_${new Date().getTime()}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+const handleExportSelectedSession = async () => {
+  if (isExporting.value || !selectedSessionForExport.value) {
+    return;
+  }
+
+  isExporting.value = true;
+  try {
+    await exportSessionToHtml(selectedSessionForExport.value);
+    alert('聊天记录已导出为HTML文件，您可以使用浏览器打开该文件并打印为PDF');
+  } catch (error) {
+    console.error('导出失败:', error);
+    alert(error.message || '导出失败，请查看控制台了解详细信息');
+  } finally {
+    isExporting.value = false;
+  }
+};
+
+const loadGlossary = async () => {
+  try {
+    const response = await api.getGlossary();
+    store.setGlossary(response.data.terms || {});
+  } catch (err) {
+    console.warn('加载术语词典失败', err);
+  }
+};
 
 // (新增) 切换侧边栏函数
 const toggleSidebar = () => {
@@ -317,6 +407,7 @@ const loadHistory = async (sessionId) => {
 };
 
 onMounted(() => {
+  loadGlossary();
   loadHistory(currentSession.value);
 });
 
@@ -546,6 +637,15 @@ const handleLogout = () => {
   if (window.confirm('确定要退出登录吗？')) {
     store.clearApiKey();
     router.push('/login');
+    return true;
+  }
+  return false;
+};
+
+const handleLogoutFromModal = () => {
+  const didLogout = handleLogout();
+  if (didLogout) {
+    closeSettingsModal();
   }
 };
 </script>
@@ -742,5 +842,86 @@ const handleLogout = () => {
 .loading-indicator .loading {
   width: 1.25rem;
   height: 1.25rem;
+}
+
+.settings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 1.5rem;
+}
+
+.settings-modal {
+  width: min(480px, 100%);
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+
+.settings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-modal-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-modal-body {
+  padding: 1rem 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.settings-field label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.settings-field select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.settings-field select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(77, 107, 254, 0.15);
+}
+
+.settings-hint {
+  font-size: 0.75rem;
+  color: var(--text-light);
+}
+
+.settings-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 </style>

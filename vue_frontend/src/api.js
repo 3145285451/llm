@@ -148,6 +148,10 @@ export default {
   // (修改) 保留 axios
   clearHistory(sessionId) {
     return axiosApi.delete('/history', { params: { session_id: sessionId } });
+  },
+
+  getGlossary() {
+    return axiosApi.get('/glossary');
   }
 };
 

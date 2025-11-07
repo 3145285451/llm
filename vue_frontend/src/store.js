@@ -14,7 +14,10 @@ export const useStore = defineStore('main', {
 
     // (新增) 搜索选项
     useDbSearch: true,
-    useWebSearch: false
+    useWebSearch: false,
+
+    // (新增) 术语词典
+    glossary: {}
   }),
 
   actions: {
@@ -24,6 +27,11 @@ export const useStore = defineStore('main', {
     },
     setUseWebSearch(value) {
       this.useWebSearch = value;
+    },
+
+    // (新增) 设置术语词典
+    setGlossary(entries) {
+      this.glossary = entries || {};
     },
 
     // 保存API Key

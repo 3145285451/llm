@@ -54,7 +54,7 @@
         </div>
 
         <!-- (调整) 用户消息内容 -->
-        <div v-if="isUser" class="message-text user-message-text">
+        <div v-if="isUser" ref="userTextRef" class="message-text user-message-text">
           {{ content }}
         </div>
         <!-- (调整) AI 消息内容 -->
@@ -190,6 +190,7 @@
 
 <script setup>
 import { computed, defineProps, ref, watch, onUnmounted, defineEmits, onMounted, nextTick } from 'vue';
+import { useStore } from '../store';
 import { marked } from 'marked';
 import { 
   BrainIcon, ChevronDownIcon, ChevronUpIcon, 
@@ -211,6 +212,9 @@ const props = defineProps({
 });
 
 const emits = defineEmits(['regenerate', 'edit']);
+
+const store = useStore();
+const glossaryEntries = computed(() => store.glossary || {});
 
 const showthinkProcess = ref(false);
 
@@ -322,6 +326,7 @@ const formatTime = (date) => {
 const messageTextRef = ref(null);
 const thinkContentRef = ref(null);
 const codeBlockCopiedStates = ref(new Map());
+const userTextRef = ref(null);
 
 const showHtmlPreview = ref(false);
 const htmlPreviewContent = ref('');
@@ -441,15 +446,152 @@ const addCodeBlockCopyButtons = (container) => {
   });
 };
 
+const SKIP_TAGS = new Set(['CODE', 'PRE', 'SCRIPT', 'STYLE']);
+
+const applyGlossaryTooltips = (container) => {
+  if (!container) return;
+  const entries = glossaryEntries.value;
+  const terms = Object.keys(entries || {});
+  if (terms.length === 0) return;
+
+  const sortedTerms = terms
+    .map((term) => ({
+      term,
+      lower: term.toLowerCase(),
+      explanation: entries[term],
+    }))
+    .sort((a, b) => b.term.length - a.term.length);
+
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        if (!node.parentElement) return NodeFilter.FILTER_REJECT;
+        if (SKIP_TAGS.has(node.parentElement.tagName)) return NodeFilter.FILTER_REJECT;
+        if (node.parentElement.closest('.glossary-term')) return NodeFilter.FILTER_REJECT;
+        if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    },
+    false
+  );
+
+  const textNodes = [];
+  while (walker.nextNode()) {
+    textNodes.push(walker.currentNode);
+  }
+
+  textNodes.forEach((node) => {
+    const originalText = node.nodeValue;
+    const lowerText = originalText.toLowerCase();
+    let currentIndex = 0;
+    const fragments = [];
+
+    while (currentIndex < originalText.length) {
+      let matchedEntry = null;
+      let matchedIndex = -1;
+
+      for (const entry of sortedTerms) {
+        const idx = lowerText.indexOf(entry.lower, currentIndex);
+        if (idx !== -1 && (matchedIndex === -1 || idx < matchedIndex)) {
+          matchedIndex = idx;
+          matchedEntry = entry;
+        }
+      }
+
+      if (!matchedEntry) {
+        break;
+      }
+
+      if (matchedIndex > currentIndex) {
+        fragments.push(document.createTextNode(originalText.slice(currentIndex, matchedIndex)));
+      }
+
+      const matchedText = originalText.slice(
+        matchedIndex,
+        matchedIndex + matchedEntry.term.length
+      );
+
+      const span = document.createElement('span');
+      span.className = 'glossary-term';
+      span.setAttribute('tabindex', '0');
+      span.dataset.term = matchedEntry.term;
+      span.textContent = matchedText;
+
+      const tooltip = document.createElement('span');
+      tooltip.className = 'glossary-tooltip';
+      tooltip.textContent = matchedEntry.explanation || matchedEntry.term;
+
+      span.appendChild(tooltip);
+      fragments.push(span);
+
+      currentIndex = matchedIndex + matchedText.length;
+    }
+
+    if (fragments.length > 0) {
+      if (currentIndex < originalText.length) {
+        fragments.push(document.createTextNode(originalText.slice(currentIndex)));
+      }
+
+      const parent = node.parentNode;
+      fragments.forEach((fragment) => {
+        parent.insertBefore(fragment, node);
+      });
+      parent.removeChild(node);
+    }
+  });
+};
+
+const enhanceAssistantContent = () => {
+  nextTick(() => {
+    if (!messageTextRef.value) return;
+    addCodeBlockCopyButtons(messageTextRef.value);
+    applyGlossaryTooltips(messageTextRef.value);
+  });
+};
+
+const enhanceThinkContent = () => {
+  nextTick(() => {
+    if (!thinkContentRef.value) return;
+    addCodeBlockCopyButtons(thinkContentRef.value);
+    applyGlossaryTooltips(thinkContentRef.value);
+  });
+};
+
+const enhanceUserContent = () => {
+  nextTick(() => {
+    if (!userTextRef.value) return;
+    applyGlossaryTooltips(userTextRef.value);
+  });
+};
+
 watch(() => renderedMarkdown.value, () => {
   if (!props.isUser) {
-    nextTick(() => { addCodeBlockCopyButtons(messageTextRef.value); });
+    enhanceAssistantContent();
   }
 }, { immediate: true });
 
 watch(() => [renderedthinkProcess.value, showthinkProcess.value], () => {
-  if (showthinkProcess.value && thinkContentRef.value) {
-    nextTick(() => { addCodeBlockCopyButtons(thinkContentRef.value); });
+  if (!props.isUser && showthinkProcess.value) {
+    enhanceThinkContent();
+  }
+}, { immediate: true });
+
+watch(() => props.content, () => {
+  if (props.isUser) {
+    enhanceUserContent();
+  }
+}, { immediate: true });
+
+watch(glossaryEntries, () => {
+  if (props.isUser) {
+    enhanceUserContent();
+  } else {
+    enhanceAssistantContent();
+    if (showthinkProcess.value) {
+      enhanceThinkContent();
+    }
   }
 }, { immediate: true });
 
@@ -511,13 +653,13 @@ const executeJavaScript = (code) => {
 
 
 onMounted(() => {
-  if (!props.isUser) {
-    nextTick(() => {
-      addCodeBlockCopyButtons(messageTextRef.value);
-      if (showthinkProcess.value) {
-        addCodeBlockCopyButtons(thinkContentRef.value);
-      }
-    });
+  if (props.isUser) {
+    enhanceUserContent();
+  } else {
+    enhanceAssistantContent();
+    if (showthinkProcess.value) {
+      enhanceThinkContent();
+    }
   }
 });
 </script>
@@ -595,7 +737,7 @@ onMounted(() => {
   border: 1px solid var(--border-color);
   background-color: var(--card-bg);
   box-shadow: var(--shadow-sm);
-  overflow: hidden; /* (新增) 确保 think-container 圆角 */
+  overflow: visible;
 }
 
 /* 新增：用户消息附件名顶部小框（独立于气泡） */
@@ -955,5 +1097,48 @@ onMounted(() => {
   line-height: 1.6;
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+:deep(.glossary-term) {
+  position: relative;
+  cursor: help;
+  border-bottom: 1px dashed var(--primary-color);
+  color: inherit;
+  transition: color 0.2s ease;
+}
+
+:deep(.glossary-term:focus-visible) {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+:deep(.glossary-term .glossary-tooltip) {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 0.5rem);
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 0.5rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  width: max-content;
+  max-width: 360px;
+  min-width: 160px;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 25;
+}
+
+:deep(.glossary-term:hover .glossary-tooltip),
+:deep(.glossary-term:focus .glossary-tooltip) {
+  opacity: 1;
+  transform: translate(-50%, -0.25rem);
+  pointer-events: auto;
 }
 </style>
