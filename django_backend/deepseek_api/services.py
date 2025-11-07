@@ -12,6 +12,44 @@ from ddgs import DDGS
 
 logger = logging.getLogger(__name__)
 
+
+# 模型名称映射（前端展示名 -> Ollama 模型 ID）
+DEFAULT_MODEL_ALIASES = {
+    "DeepSeek-R1:7b": "deepseek-r1:7b",
+    "Qwen3:8b": "qwen3:8b",
+    "Llama3:8b": "llama3:8b",
+}
+
+
+def resolve_model_name(model_name: Optional[str]) -> Optional[str]:
+    if not model_name:
+        return None
+
+    normalized = model_name.strip()
+    if not normalized:
+        return None
+
+    # 优先使用 settings 中的自定义映射
+    custom_aliases = getattr(settings, "LLM_MODEL_ALIASES", None)
+    if isinstance(custom_aliases, dict):
+        candidate = custom_aliases.get(normalized)
+        if not candidate:
+            candidate = custom_aliases.get(normalized.lower())
+        if candidate:
+            return candidate
+
+    # 回退到内置映射
+    alias = DEFAULT_MODEL_ALIASES.get(normalized)
+    if not alias:
+        alias = DEFAULT_MODEL_ALIASES.get(normalized.lower())
+
+    if alias:
+        return alias
+
+    # 最后再尝试使用小写形式
+    return normalized.lower()
+
+
 # 全局初始化 TopKLogSystem
 # 使用 DeepSeek-R1:7B 作为主模型，bge-large:latest 作为嵌入模型
 # 避免在每次API调用时都重新加载索引，极大提高效率
@@ -32,17 +70,18 @@ def real_web_search(query: str, max_results: int = 3) -> List[Dict]:
     try:
         # 使用 DDGS 上下文管理器
         with DDGS() as ddgs:
-            results = ddgs.text(query,region="cn-zh",backend='yandex',max_results=max_results)
-            
+            results = ddgs.text(
+                query, region="cn-zh", backend="yandex", max_results=max_results
+            )
+
             if not results:
                 logger.warning(f"联网搜索 '{query}' 没有返回结果。")
                 return []
-            
+
             # 将结果格式化为
             # List[{"content": "摘要", "source": "链接"}]
             formatted_results = [
-                {"content": r['body'], "source": r['href']} 
-                for r in results
+                {"content": r["body"], "source": r["href"]} for r in results
             ]
             return formatted_results
     except Exception as e:
@@ -51,14 +90,15 @@ def real_web_search(query: str, max_results: int = 3) -> List[Dict]:
         return []
 
 
-def deepseek_r1_api_call(
-    prompt: str, 
+def model_api_call(
+    prompt: str,
     conversation_history: List[Dict] = None,
     use_db_search: bool = True,
-    use_web_search: bool = False
+    use_web_search: bool = False,
+    model_name: Optional[str] = None,
 ):
     """
-    调用 DeepSeek-R1:7B 模型 API 函数 - 流式响应。
+    调用 模型 API 函数 - 流式响应。
     ... (函数文档保持不变) ...
     """
 
@@ -67,36 +107,42 @@ def deepseek_r1_api_call(
         yield "错误：日志分析系统未成功初始化。"
         return
 
+    model_name = resolve_model_name(model_name)
+
+    if model_name:
+        logger.info(
+            f"使用模型: {model_name}"
+            + (f" (来源: {model_name})" if model_name != model_name else "")
+        )
+
     try:
-        # (新增) 步骤 1: 根据标志获取上下文
+        # 步骤 1: 根据标志获取上下文
         log_results = []
         web_results = []
 
         if use_db_search:
             logger.info(f"执行数据库日志检索: {prompt}")
-            log_results = log_system.retrieve_logs(prompt, top_k=5) 
-        
+            log_results = log_system.retrieve_logs(prompt, top_k=5)
+
         if use_web_search:
             logger.info(f"执行联网搜索: {prompt}")
-            # [修改] 调用真实的搜索函数，而不是 mock
+            # 调用搜索函数
             web_results = real_web_search(prompt, max_results=10)
-            
-        # (新增) 步骤 2: 准备组合上下文
-        combined_context = {
-            "log_context": log_results,
-            "web_context": web_results
-        }
-        
-        # (修改) 步骤 3: 调用 generate_response
+
+        # 步骤 2: 准备组合上下文
+        combined_context = {"log_context": log_results, "web_context": web_results}
+
+        # 步骤 3: 调用 generate_response
         for chunk in log_system.generate_response(
-            prompt, 
-            context=combined_context, 
-            history=conversation_history
+            prompt,
+            context=combined_context,
+            history=conversation_history,
+            model_name=model_name,
         ):
-            yield chunk 
-            
+            yield chunk
+
     except Exception as e:
-        logger.error(f"deepseek_r1_api_call 流式处理失败: {e}")
+        logger.error(f"model_api_call 流式处理失败: {e}")
         yield f"API 调用失败: {e}"
 
 
@@ -132,10 +178,13 @@ def validate_api_key(key_str: str) -> bool:
     except APIKey.DoesNotExist:
         return False
 
+
 # (删除) check_rate_limit 函数在当前版本中未被 api.py 调用，暂时省略
 # ... (如果需要，可以保留 check_rate_limit 函数) ...
 # (保留) 为了代码完整性，保留 check_rate_limit
-rate_lock = threading.Lock() # 确保在顶部添加了 threading
+rate_lock = threading.Lock()  # 确保在顶部添加了 threading
+
+
 def check_rate_limit(key_str: str) -> bool:
     """检查 API Key 的请求频率是否超过限制"""
     with rate_lock:
@@ -168,6 +217,7 @@ def check_rate_limit(key_str: str) -> bool:
                 return True
             except APIKey.DoesNotExist:
                 return False
+
 
 def get_or_create_session(session_id: str, user: APIKey) -> ConversationSession:
     """

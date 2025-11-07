@@ -6,7 +6,7 @@ from . import services
 from django.conf import settings
 from .schemas import LoginIn, LoginOut, ChatIn, ChatOut, HistoryOut, ErrorResponse
 from .models import APIKey
-from .services import get_or_create_session, deepseek_r1_api_call
+from .services import get_or_create_session, model_api_call
 from datetime import datetime
 import logging
 import re
@@ -320,10 +320,13 @@ def chat(request, data: ChatIn):
     user = request.auth
     session = get_or_create_session(session_id, user)
 
-    # (新增) 获取搜索选项
+    # 获取搜索选项
     use_db_search = data.use_db_search
     use_web_search = data.use_web_search
+    selected_model = data.model_name
     logger.info(f"搜索选项 - 数据库: {use_db_search}, 联网: {use_web_search}")
+    if selected_model:
+        logger.info(f"前端请求使用模型: {selected_model}")
 
     if data.context and len(data.context) > 0:
         # 情况A：前端提供了 context，使用它作为对话历史
@@ -369,9 +372,12 @@ def chat(request, data: ChatIn):
         think_time_sent = False  # 确保元数据只发送一次
         print("History\n", history_for_llm)
         try:
-            # (修改) 传递搜索选项
-            for raw_chunk in deepseek_r1_api_call(
-                user_input, history_for_llm, use_db_search, use_web_search
+            for raw_chunk in model_api_call(
+                user_input,
+                history_for_llm,
+                use_db_search,
+                use_web_search,
+                model_name=selected_model,
             ):
                 buffer += raw_chunk
 

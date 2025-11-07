@@ -70,7 +70,7 @@
           class="loading-indicator"
         >
           <div class="loading"></div>
-          <p>KAI 正在分析...</p>
+          <p> 模型正在分析...</p>
         </div>
       </div>
       
@@ -224,7 +224,7 @@ const buildExportHtml = (sessionName, exportTime, sessionMessages) => {
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>DeepSeek-KAI 聊天记录 - ${sessionName}</title>
+        <title> 模型聊天记录 - ${sessionName}</title>
         <style>
             body {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
@@ -303,7 +303,7 @@ const buildExportHtml = (sessionName, exportTime, sessionMessages) => {
     </head>
     <body>
         <div class="header">
-            <h1>DeepSeek-KAI 聊天记录</h1>
+            <h1> 模型聊天记录 </h1>
             <h2>会话: ${sessionName}</h2>
             <p>导出时间: ${exportTime}</p>
         </div>

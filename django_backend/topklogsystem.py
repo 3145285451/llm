@@ -7,8 +7,9 @@ os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
 
 import json
 import logging
+import threading
 import pandas as pd
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # langchain
 from langchain.prompts import (
@@ -62,8 +63,11 @@ class TopKLogSystem:
     ) -> None:
         # 初始化嵌入模型 (BGE-Large)
         self.embedding_model = OllamaEmbeddings(model=embedding_model)
+        self._default_llm_name = llm
+        self._llm_cache: Dict[str, OllamaLLM] = {}
+        self._llm_lock = threading.RLock()
         # 初始化大语言模型 (DeepSeek-R1:7B)
-        self.llm = OllamaLLM(model=llm, temperature=0.1)
+        self.llm = self._get_or_create_llm(llm)
 
         Settings.llm = self.llm
         Settings.embed_model = self.embedding_model
@@ -271,10 +275,37 @@ class TopKLogSystem:
             return []
 
     # (修改) context 现在是一个字典
-    def generate_response(self, query: str, context: Dict, history: List[Dict] = None):
+    def _get_or_create_llm(self, model_name: Optional[str]) -> OllamaLLM:
+        target_name = (model_name or self._default_llm_name or "").strip()
+        if not target_name:
+            target_name = self._default_llm_name
+
+        cached_llm = self._llm_cache.get(target_name)
+        if cached_llm is not None:
+            return cached_llm
+
+        new_llm = OllamaLLM(model=target_name, temperature=0.1)
+        self._llm_cache[target_name] = new_llm
+        return new_llm
+
+    def generate_response(
+        self,
+        query: str,
+        context: Dict,
+        history: List[Dict] = None,
+        model_name: Optional[str] = None,
+    ):
         prompt_messages = self._build_prompt(query, context, history)
+
+        llm_to_use = self._get_or_create_llm(model_name)
+
+        # 更新当前使用的 LLM，确保后续依赖 Settings.llm 的流程保持一致
+        with self._llm_lock:
+            self.llm = llm_to_use
+            Settings.llm = llm_to_use
+
         try:
-            for chunk in self.llm.stream(prompt_messages):
+            for chunk in llm_to_use.stream(prompt_messages):
                 yield chunk
 
         except Exception as e:
@@ -420,6 +451,7 @@ class TopKLogSystem:
         history: List[Dict] = None,
         use_db_search: bool = True,
         use_web_search: bool = False,
+        model_name: Optional[str] = None,
     ):
         log_results = []
         if use_db_search:
@@ -433,7 +465,12 @@ class TopKLogSystem:
 
         combined_context = {"log_context": log_results, "web_context": web_results}
 
-        for chunk in self.generate_response(query, combined_context, history):
+        for chunk in self.generate_response(
+            query,
+            combined_context,
+            history,
+            model_name=model_name,
+        ):
             yield chunk
 
 
