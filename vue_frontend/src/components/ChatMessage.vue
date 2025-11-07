@@ -192,6 +192,8 @@
 import { computed, defineProps, ref, watch, onUnmounted, defineEmits, onMounted, nextTick } from 'vue';
 import { useStore } from '../store';
 import { marked } from 'marked';
+// 2. 导入 highlight.js
+import hljs from 'highlight.js';
 import { 
   BrainIcon, ChevronDownIcon, ChevronUpIcon, 
   CopyIcon, CheckIcon, RefreshIcon, 
@@ -332,6 +334,19 @@ const showHtmlPreview = ref(false);
 const htmlPreviewContent = ref('');
 const showJsResult = ref(false);
 const jsResultContent = ref('');
+
+// 3. (新增) 应用语法高亮的函数
+const applySyntaxHighlighting = (container) => {
+  if (!container) return;
+  // 找到所有 'pre code' 块并应用高亮
+  container.querySelectorAll('pre code').forEach((block) => {
+    // 检查是否已经高亮过，避免重复
+    if (!block.classList.contains('hljs')) {
+      hljs.highlightElement(block);
+    }
+  });
+};
+
 
 const addCodeBlockCopyButtons = (container) => {
   if (!container) return;
@@ -548,6 +563,8 @@ const enhanceAssistantContent = () => {
     if (!messageTextRef.value) return;
     addCodeBlockCopyButtons(messageTextRef.value);
     applyGlossaryTooltips(messageTextRef.value);
+    // 4. 在渲染 markdown 后调用高亮
+    applySyntaxHighlighting(messageTextRef.value);
   });
 };
 
@@ -556,6 +573,8 @@ const enhanceThinkContent = () => {
     if (!thinkContentRef.value) return;
     addCodeBlockCopyButtons(thinkContentRef.value);
     applyGlossaryTooltips(thinkContentRef.value);
+    // 5. 同样在“思考过程”中调用高亮
+    applySyntaxHighlighting(thinkContentRef.value);
   });
 };
 
@@ -837,7 +856,7 @@ onMounted(() => {
   overflow: hidden;
 }
 .think-content {
-  padding: 1rem 1.5rem;
+  padding: 1.5rem 2rem;
   background-color: var(--card-bg); 
   font-size: 0.9rem;
 }
@@ -1010,10 +1029,22 @@ onMounted(() => {
   color: var(--primary-color);
 }
 
+/* (修改) 确保 pre 标签应用 highlight.js 的样式 */
+:deep(pre code.hljs) {
+  /* pre 标签现在由 highlight.js 主题控制 */
+  /* 我们在 main.js 导入了 atom-one-dark.css */
+  /* 确保 padding 统一 */
+  padding: 1rem !important;
+  border-radius: var(--radius);
+}
+
 :deep(pre) {
   position: relative;
   margin: 0;
-  padding-top: 2.5rem; /* (新增) 为按钮留出空间 */
+  /* (修改) 移除 pre 的内边距，交给 hljs */
+  padding: 0; 
+  /* (新增) 确保 pre 也有圆角 */
+  border-radius: var(--radius);
 }
 
 /* (调整) 预览模态框 */
