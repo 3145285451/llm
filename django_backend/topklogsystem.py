@@ -41,6 +41,107 @@ from PyPDF2 import PdfReader
 
 
 class TopKLogSystem:
+    def __init__(
+        self,
+        log_path: str,
+        llm: str,
+        embedding_model: str,
+    ) -> None:
+        # ...existing code...
+
+        # 口语化、拼写纠正、缩写扩展映射
+        self.query_rewrite_map = {
+            # 口语化表达
+            "数据库挂了": "数据库服务不可用",
+            "服务器崩了": "服务器不可用",
+            "网崩了": "网络不可用",
+            "卡死": "无响应",
+            "死机": "系统崩溃",
+            "打不开": "无法访问",
+            "连不上": "无法连接",
+            "掉线": "连接中断",
+            "爆了": "资源耗尽",
+            "慢得要死": "响应慢",
+            "报错": "出现错误",
+            # 拼写纠正
+            "myslq": "mysql",
+            "mssql": "sqlserver",
+            "mangodb": "mongodb",
+            "redsi": "redis",
+            "apche": "apache",
+            "ngixn": "nginx",
+            "tomcatc": "tomcat",
+            "dockre": "docker",
+            "pyhton": "python",
+            "javva": "java",
+            "linxu": "linux",
+            # 缩写扩展
+            "DB": "数据库",
+            "CPU": "中央处理器",
+            "RAM": "内存",
+            "SLA": "服务等级协议",
+            "IO": "输入输出",
+            "GC": "垃圾回收",
+            "OOM": "内存溢出",
+            "RTO": "恢复时间目标",
+            "RPO": "恢复点目标",
+            "LB": "负载均衡",
+            "API": "应用程序接口",
+            "SRE": "站点可靠性工程师",
+            "DNS": "域名系统",
+            "TCP": "传输控制协议",
+            "UDP": "用户数据报协议",
+            "SSL": "安全套接字层",
+            "TLS": "传输层安全协议",
+        }
+        # 同义词库
+        self.synonyms = {
+            "数据库": ["db", "database", "数据存储", "data store", "datastore", "库"],
+            "连接": ["连接", "链接", "connect", "connection", "link", "access"],
+            "错误": ["错误", "异常", "故障", "问题", "error", "exception", "bug", "issue", "fail", "failure", "crash", "panic"],
+            "性能": ["性能", "速度", "响应", "performance", "latency", "slow", "快", "慢", "吞吐", "throughput"],
+            "内存": ["内存", "RAM", "记忆体", "memory", "heap", "堆", "stack", "栈"],
+            "网络": ["网络", "网路", "network", "internet", "intranet", "lan", "wan", "vlan", "wifi", "以太网", "ethernet"],
+            "磁盘": ["磁盘", "硬盘", "disk", "ssd", "hdd", "存储", "storage"],
+            "CPU": ["cpu", "中央处理器", "processor", "core", "核"],
+            "端口": ["端口", "port", "socket"],
+            "日志": ["日志", "log", "logging", "记录"],
+            "超时": ["超时", "timeout", "timed out", "time out"],
+            "重启": ["重启", "restart", "reload", "reset"],
+            "升级": ["升级", "update", "upgrade", "patch"],
+            "部署": ["部署", "deploy", "deployment", "发布", "上线"],
+            "监控": ["监控", "monitor", "监测", "监视", "监控系统", "prometheus", "grafana"],
+            "报警": ["报警", "告警", "警报", "alert", "alarm", "notification"],
+            "服务": ["服务", "service", "server", "服务端", "服务器"],
+            "客户端": ["客户端", "client", "consumer", "user"],
+            "请求": ["请求", "request", "调用", "call", "invoke"],
+            "响应": ["响应", "response", "reply", "回包"],
+            "配置": ["配置", "config", "configuration", "设置", "参数"],
+            "安全": ["安全", "security", "加密", "encryption", "认证", "authentication", "授权", "authorization"],
+            "证书": ["证书", "certificate", "cert", "ca"],
+            "端口": ["端口", "port", "socket"],
+            "带宽": ["带宽", "bandwidth", "流量", "traffic"],
+            "丢包": ["丢包", "packet loss", "loss", "丢失"],
+            "延迟": ["延迟", "latency", "lag", "卡顿", "慢"],
+            "宕机": ["宕机", "down", "unavailable", "挂了", "崩溃"],
+        }
+
+    def _rewrite_query(self, query: str) -> str:
+        """
+        对用户输入进行标准化、纠错、扩展。
+        """
+        # 1. 口语化/拼写/缩写 替换
+        for k, v in self.query_rewrite_map.items():
+            if k.lower() in query.lower():
+                query = re.sub(re.escape(k), v, query, flags=re.IGNORECASE)
+
+        # 2. 同义词扩展（可选：将同义词替换为主词，或在末尾补充同义词，提升召回）
+        # 这里采用补充主词的方式
+        for main_word, syns in self.synonyms.items():
+            for syn in syns:
+                if syn.lower() in query.lower() and main_word not in query:
+                    query += f" {main_word}"
+        return query
     """
     基于 DeepSeek-R1:7B 的日志分析系统
 
@@ -257,19 +358,53 @@ class TopKLogSystem:
             documents.append(Document(text=content))
         return documents
 
-    def retrieve_logs(self, query: str, top_k: int = 10) -> List[Dict]:
+    def retrieve_logs(self, query: str, top_k: int = 10, use_keyword: bool = True, filter_func=None) -> List[Dict]:
+        """
+        增强版检索：向量检索+关键词检索融合，支持分数重排序和可选过滤。
+        :param query: 检索内容
+        :param top_k: 返回条数
+        :param use_keyword: 是否融合关键词检索
+        :param filter_func: 可选过滤函数，接收一条日志dict，返回bool
+        """
         if not self.log_index:
             logger.warning("Log index 未初始化，跳过检索。")
             return []
         try:
-            retriever = self.log_index.as_retriever(similarity_top_k=top_k)
-            results = retriever.retrieve(query)
-            formatted_results = []
-            for result in results:
-                formatted_results.append(
-                    {"content": result.text, "score": result.score}
-                )
-            return formatted_results
+            # 1. 向量检索
+            retriever = self.log_index.as_retriever(similarity_top_k=top_k * 2 if use_keyword else top_k)
+            vector_results = retriever.retrieve(query)
+            vector_set = set()
+            formatted_vector = []
+            for result in vector_results:
+                key = result.text.strip()
+                vector_set.add(key)
+                formatted_vector.append({"content": key, "score": float(result.score), "source": "vector"})
+
+            # 2. 关键词检索（简单实现：全文包含query关键词，或分词后包含）
+            keyword_results = []
+            if use_keyword:
+                # 直接遍历所有日志（如数据量大可优化为倒排索引）
+                all_logs = self.log_index.docstore.docs.values() if hasattr(self.log_index, 'docstore') else []
+                qwords = set(query.lower().split())
+                for doc in all_logs:
+                    text = getattr(doc, 'text', str(doc)).strip()
+                    if text in vector_set:
+                        continue  # 避免重复
+                    # 简单分词匹配
+                    if any(word in text.lower() for word in qwords):
+                        keyword_results.append({"content": text, "score": 0.5, "source": "keyword"})
+
+            # 3. 融合与重排序
+            all_results = formatted_vector + keyword_results
+            # 分数归一化/加权（可根据需要调整）
+            all_results.sort(key=lambda x: x["score"], reverse=True)
+
+            # 4. 可选过滤
+            if filter_func:
+                all_results = [item for item in all_results if filter_func(item)]
+
+            # 5. 截断top_k
+            return all_results[:top_k]
         except Exception as e:
             logger.error(f"日志检索失败: {e}")
             return []
@@ -295,6 +430,8 @@ class TopKLogSystem:
         history: List[Dict] = None,
         model_name: Optional[str] = None,
     ):
+        # 新增：先对 query 做标准化/纠错/扩展
+        query = self._rewrite_query(query)
         prompt_messages = self._build_prompt(query, context, history)
 
         llm_to_use = self._get_or_create_llm(model_name)
@@ -453,6 +590,8 @@ class TopKLogSystem:
         use_web_search: bool = False,
         model_name: Optional[str] = None,
     ):
+        # 新增：先对 query 做标准化/纠错/扩展
+        query = self._rewrite_query(query)
         log_results = []
         if use_db_search:
             log_results = self.retrieve_logs(query)
