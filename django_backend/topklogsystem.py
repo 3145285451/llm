@@ -126,6 +126,21 @@ class TopKLogSystem:
             "宕机": ["宕机", "down", "unavailable", "挂了", "崩溃"],
         }
 
+        # 初始化嵌入模型 (BGE-Large)
+        self.embedding_model = OllamaEmbeddings(model=embedding_model)
+        self._default_llm_name = llm
+        self._llm_cache: Dict[str, OllamaLLM] = {}
+        self._llm_lock = threading.RLock()
+        # 初始化大语言模型 (DeepSeek-R1:7B)
+        self.llm = self._get_or_create_llm(llm)
+
+        Settings.llm = self.llm
+        Settings.embed_model = self.embedding_model
+
+        self.log_path = log_path
+        self.log_index = None
+        self.vector_store = None
+        self._build_vectorstore()
     def _rewrite_query(self, query: str) -> str:
         """
         对用户输入进行标准化、纠错、扩展。
@@ -155,28 +170,6 @@ class TopKLogSystem:
     - Embedding: BGE-Large (bge-large:latest)
       * 用于向量检索和文档嵌入
     """
-
-    def __init__(
-        self,
-        log_path: str,
-        llm: str,
-        embedding_model: str,
-    ) -> None:
-        # 初始化嵌入模型 (BGE-Large)
-        self.embedding_model = OllamaEmbeddings(model=embedding_model)
-        self._default_llm_name = llm
-        self._llm_cache: Dict[str, OllamaLLM] = {}
-        self._llm_lock = threading.RLock()
-        # 初始化大语言模型 (DeepSeek-R1:7B)
-        self.llm = self._get_or_create_llm(llm)
-
-        Settings.llm = self.llm
-        Settings.embed_model = self.embedding_model
-
-        self.log_path = log_path
-        self.log_index = None
-        self.vector_store = None
-        self._build_vectorstore()
 
     # 构建向量数据库的核心函数
     def _build_vectorstore(self):
